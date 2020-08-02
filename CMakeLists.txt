@@ -17,5 +17,6 @@ add_library(xcic SHARED
 
 target_link_libraries(xcic ${MSGPUCK_LIBRARIES} ${TARANTOOL_LIBRARIES})
 target_include_directories(xcic PRIVATE ${THIRD_PARTY_DIR}/scomlib ${MSGPUCK_INCLUDE_DIRS} ${TARANTOOL_INCLUDE_DIRS})
-set_property(TARGET xcic PROPERTY C_STANDARD 99)
+set_target_properties(xcic PROPERTIES PREFIX "" OUTPUT_NAME xcic)
+set_property(TARGET xcic PROPERTY C_STANDARD 11)
 set_property(TARGET xcic PROPERTY POSITION_INDEPENDENT_CODE ON)
