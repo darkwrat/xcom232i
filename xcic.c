@@ -68,7 +68,7 @@ static int xcic_frame_encode_read_property(lua_State *L)
 	return 0;
 }
 
-static int xcic_frame_pack_header(lua_State *L)
+static int xcic_frame_encode(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: frame:pack_header()");
@@ -88,10 +88,10 @@ static int xcic_frame_pack_header(lua_State *L)
 	return 1;
 }
 
-static int xcic_frame_swap(lua_State *L)
+static int xcic_frame_flip(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
-		return luaL_error(L, "Usage: frame:swap()");
+		return luaL_error(L, "Usage: frame:flip()");
 
 	struct xcic_frame *f =
 	    (struct xcic_frame *)luaL_checkudata(L, 1, XCIC_LUA_UDATA_NAME);
@@ -103,10 +103,10 @@ static int xcic_frame_swap(lua_State *L)
 	return 0;
 }
 
-static int xcic_frame_unpack_header(lua_State *L)
+static int xcic_frame_decode_header(lua_State *L)
 {
 	if (lua_gettop(L) < 2)
-		return luaL_error(L, "Usage: frame:unpack_header(data)");
+		return luaL_error(L, "Usage: frame:decode_header(data)");
 
 	struct xcic_frame *f =
 	    (struct xcic_frame *)luaL_checkudata(L, 1, XCIC_LUA_UDATA_NAME);
@@ -144,10 +144,10 @@ static int xcic_frame_data_len(lua_State *L)
 	return 1;
 }
 
-static int xcic_frame_unpack_data(lua_State *L)
+static int xcic_frame_decode_data(lua_State *L)
 {
 	if (lua_gettop(L) < 2)
-		return luaL_error(L, "Usage: frame:unpack_data(data)");
+		return luaL_error(L, "Usage: frame:decode_data(data)");
 
 	struct xcic_frame *f =
 	    (struct xcic_frame *)luaL_checkudata(L, 1, XCIC_LUA_UDATA_NAME);
@@ -305,11 +305,11 @@ static const struct luaL_Reg R[] = {
 
 static const struct luaL_Reg M[] = {
     {"encode_read_property", xcic_frame_encode_read_property},
-    {"pack_header", xcic_frame_pack_header},
-    {"swap", xcic_frame_swap},
+    {"encode", xcic_frame_encode},
+    {"flip", xcic_frame_flip},
     {"data_len", xcic_frame_data_len},
-    {"unpack_header", xcic_frame_unpack_header},
-    {"unpack_data", xcic_frame_unpack_data},
+    {"decode_header", xcic_frame_decode_header},
+    {"decode_data", xcic_frame_decode_data},
     {"decode_read_property", xcic_frame_decode_read_property},
     {NULL, NULL}};
 /*

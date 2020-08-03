@@ -14,17 +14,17 @@ xcic.setup_tty(tty.fh)
 
 f = xcic.new_frame(dst_addr)
 f:encode_read_property(xcic.USER_INFO_OBJECT_TYPE, object_id, property_id)
-req = f:pack_header()
+req = f:encode()
 if not tty:write(req) then
 	error('bad write')
 end
 
-f:swap()
+f:flip()
 data = tty:read(xcic.FRAME_HEADER_SIZE)
-f:unpack_header(data)
+f:decode_header(data)
 
 data = tty:read(f:data_len())
-f:unpack_data(data)
+f:decode_data(data)
 data = f:decode_read_property()
 
 print(string.format('uBat = %.2f V', xcic.read_le_float(data)))
