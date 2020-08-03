@@ -23,8 +23,9 @@ struct xcic_frame {
 
 static int xcic_new_frame(lua_State *L)
 {
-	if (lua_gettop(L) < 1)
-		return luaL_error(L, "Usage: xcic.new_frame(dst_addr)");
+	if (lua_gettop(L) < 4)
+		return luaL_error(L, "Usage: xcic.new_frame(dst_addr, "
+				     "object_type, object_id, property_id)");
 
 	struct xcic_frame *f =
 	    (struct xcic_frame *)lua_newuserdata(L, sizeof(struct xcic_frame));
@@ -36,6 +37,12 @@ static int xcic_new_frame(lua_State *L)
 	f->frame.src_addr = 1;
 	f->frame.dst_addr = lua_tointeger(L, 1);
 
+	scom_initialize_property(&f->property, &f->frame);
+
+	f->property.object_type = lua_tointeger(L, 2);
+	f->property.object_id = lua_tointeger(L, 3);
+	f->property.property_id = lua_tointeger(L, 4);
+
 	luaL_getmetatable(L, XCIC_LUA_UDATA_NAME);
 	lua_setmetatable(L, -2);
 
@@ -44,19 +51,11 @@ static int xcic_new_frame(lua_State *L)
 
 static int xcic_frame_encode_read_property(lua_State *L)
 {
-	if (lua_gettop(L) < 4)
-		return luaL_error(
-		    L, "Usage: frame:encode_read_propery(object_type, "
-		       "object_id, property_id)");
+	if (lua_gettop(L) < 1)
+		return luaL_error(L, "Usage: frame:encode_read_propery()");
 
 	struct xcic_frame *f =
 	    (struct xcic_frame *)luaL_checkudata(L, 1, XCIC_LUA_UDATA_NAME);
-
-	scom_initialize_property(&f->property, &f->frame);
-
-	f->property.object_type = lua_tointeger(L, 2);
-	f->property.object_id = lua_tointeger(L, 3);
-	f->property.property_id = lua_tointeger(L, 4);
 
 	scom_encode_read_property(&f->property);
 
@@ -71,7 +70,7 @@ static int xcic_frame_encode_read_property(lua_State *L)
 static int xcic_frame_encode(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
-		return luaL_error(L, "Usage: frame:pack_header()");
+		return luaL_error(L, "Usage: frame:encode()");
 
 	struct xcic_frame *f =
 	    (struct xcic_frame *)luaL_checkudata(L, 1, XCIC_LUA_UDATA_NAME);

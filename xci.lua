@@ -12,10 +12,9 @@ property_id = 1
 tty, err = fio.open('/dev/ttyS0', {'O_RDWR', 'O_NOCTTY', 'O_SYNC'})
 xcic.setup_tty(tty.fh)
 
-f = xcic.new_frame(dst_addr)
-f:encode_read_property(xcic.USER_INFO_OBJECT_TYPE, object_id, property_id)
-req = f:encode()
-if not tty:write(req) then
+f = xcic.new_frame(dst_addr, xcic.USER_INFO_OBJECT_TYPE, object_id, property_id)
+f:encode_read_property()
+if not tty:write(f:encode()) then
 	error('bad write')
 end
 
