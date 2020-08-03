@@ -20,10 +20,10 @@ if not tty:write(req) then
 end
 
 f:flip()
-data = tty:read(xcic.FRAME_HEADER_SIZE)
-f:decode_header(data)
+header = tty:read(xcic.FRAME_HEADER_SIZE)
+data_len = f:decode_header(header)
 
-data = tty:read(f:data_len())
+data = tty:read(data_len)
 f:decode_data(data)
 data = f:decode_read_property()
 

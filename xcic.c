@@ -127,17 +127,6 @@ static int xcic_frame_decode_header(lua_State *L)
 		    L, "data link header decoding failed with error %d",
 		    (int)f->frame.last_error);
 
-	return 0;
-}
-
-static int xcic_frame_data_len(lua_State *L)
-{
-	if (lua_gettop(L) < 1)
-		return luaL_error(L, "Usage: frame:data_len()");
-
-	struct xcic_frame *f =
-	    (struct xcic_frame *)luaL_checkudata(L, 1, XCIC_LUA_UDATA_NAME);
-
 	lua_pushinteger(L,
 			scom_frame_length(&f->frame) - SCOM_FRAME_HEADER_SIZE);
 
@@ -307,7 +296,6 @@ static const struct luaL_Reg M[] = {
     {"encode_read_property", xcic_frame_encode_read_property},
     {"encode", xcic_frame_encode},
     {"flip", xcic_frame_flip},
-    {"data_len", xcic_frame_data_len},
     {"decode_header", xcic_frame_decode_header},
     {"decode_data", xcic_frame_decode_data},
     {"decode_read_property", xcic_frame_decode_read_property},
