@@ -28,6 +28,7 @@ SOFTWARE.
 
 #include <errno.h>
 #include <fcntl.h>
+#include <float.h>
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
@@ -90,8 +91,8 @@ static int xcic_open_port(lua_State *L)
 
 	const char *pathname = lua_tostring(L, 1);
 
-	xp->fd =
-	    coio_call(xcic_intl_open_cb, pathname, O_RDWR | O_NOCTTY | O_SYNC);
+	xp->fd = coio_call(xcic_intl_open_cb, pathname,
+			   O_RDWR | O_NOCTTY | O_SYNC | O_NONBLOCK);
 	if (xp->fd == -1)
 		xcic_lua_except(L, "open: %s", strerror(errno));
 
@@ -129,8 +130,9 @@ static void xcic_intl_set_tty(struct termios *tty)
 	tty->c_lflag = 0;	 // no signaling chars, no echo,
 				 // no canonical processing
 	tty->c_oflag = 0;	 // no remapping, no delays
-	tty->c_cc[VMIN] = -1;	 // read blocks
-	tty->c_cc[VTIME] = 20;	 // 2.0 seconds read timeout
+
+	tty->c_cc[VMIN] = 0;  // /- unused for O_NONBLOCK
+	tty->c_cc[VTIME] = 0; // /
 
 	tty->c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
 
@@ -264,7 +266,8 @@ static int xcic_port_read_user_info(lua_State *L)
 	    xp, &frame.buffer[SCOM_FRAME_HEADER_SIZE],
 	    scom_frame_length(&frame) - SCOM_FRAME_HEADER_SIZE);
 
-	if (byte_count != (scom_frame_length(&frame) - SCOM_FRAME_HEADER_SIZE))
+	if (byte_count !=
+	    (ssize_t)(scom_frame_length(&frame) - SCOM_FRAME_HEADER_SIZE))
 		xcic_lua_except(
 		    L, "error when reading the data from the com port");
 
@@ -304,7 +307,7 @@ int xcic_intl_port_exchange(lua_State *L, struct xcic_port *xp,
 	ssize_t byte_count =
 	    xcic_intl_port_write(xp, frame->buffer, scom_frame_length(frame));
 
-	if (byte_count != scom_frame_length(frame))
+	if (byte_count != (ssize_t)scom_frame_length(frame))
 		xcic_lua_except(L, "error when writing to the com port");
 
 	scom_initialize_frame(frame, frame->buffer, frame->buffer_size);
@@ -327,13 +330,61 @@ except:
 static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf,
 				   size_t count)
 {
-	return read(xp->fd, buf, count);
+	size_t l = count;
+	ssize_t n = 0;
+	void *p = buf;
+
+	while (l > 0) {
+		int w = coio_wait(xp->fd, COIO_READ, 100);
+		if (fiber_is_cancelled())
+			break;
+		else if (!(w & COIO_READ))
+			continue;
+
+		n = read(xp->fd, p, l);
+
+		if (n == 0)
+			break;
+		else if (n == -1 && errno == EAGAIN)
+			continue;
+		else if (n == -1)
+			return n;
+
+		l -= n;
+		p += n;
+	}
+
+	return count - l;
 }
 
 static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf,
 				    size_t count)
 {
-	return write(xp->fd, buf, count);
+	size_t l = count;
+	ssize_t n = 0;
+	void *p = buf;
+
+	while (l > 0) {
+		int w = coio_wait(xp->fd, COIO_WRITE, 100);
+		if (fiber_is_cancelled())
+			break;
+		else if (!(w & COIO_WRITE))
+			continue;
+
+		n = write(xp->fd, p, l);
+
+		if (n == 0)
+			break;
+		else if (n == -1 && errno == EAGAIN)
+			continue;
+		else if (n == -1)
+			return n;
+
+		l -= n;
+		p += n;
+	}
+
+	return count - l;
 }
 
 static char *xcic_intl_scom_strerror(scom_error_t error)
