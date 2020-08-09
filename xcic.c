@@ -41,9 +41,10 @@ SOFTWARE.
 LUA_API int luaopen_xcic(lua_State *L);
 
 static int xcic_open_port(lua_State *L);
-static int xcic_read_le32(lua_State *L);
-static int xcic_read_le16(lua_State *L);
-static int xcic_read_le_float(lua_State *L);
+static int xcic_unpack_le32(lua_State *L);
+static int xcic_unpack_le16(lua_State *L);
+static int xcic_unpack_le_float(lua_State *L);
+static int xcic_unpack_software_version(lua_State *L);
 
 static int xcic_port_close(lua_State *L);
 static int xcic_port_usable(lua_State *L);
@@ -73,7 +74,7 @@ struct xcic_port {
 	box_latch_t *latch;
 };
 
-static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
+static int xcic_intl_read_property(lua_State *L, struct xcic_port *xp,
 				   scom_frame_t *f, scom_property_t *p);
 
 static void xcic_intl_set_tty(struct termios *tty);
@@ -247,7 +248,7 @@ static int xcic_port_read_user_info(lua_State *L)
 	p.object_id = lua_tointeger(L, 3);
 	p.property_id = 1;
 
-	if (xcic_scom_read_property(L, xp, &f, &p))
+	if (xcic_intl_read_property(L, xp, &f, &p))
 		goto except;
 
 	lua_pushlstring(L, p.value_buffer, p.value_length);
@@ -283,7 +284,7 @@ static int xcic_port_read_parameter_property(lua_State *L)
 	p.object_id = lua_tointeger(L, 3);
 	p.property_id = lua_tointeger(L, 4);
 
-	if (xcic_scom_read_property(L, xp, &f, &p))
+	if (xcic_intl_read_property(L, xp, &f, &p))
 		goto except;
 
 	lua_pushlstring(L, p.value_buffer, p.value_length);
@@ -294,7 +295,7 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
+static int xcic_intl_read_property(lua_State *L, struct xcic_port *xp,
 				   scom_frame_t *f, scom_property_t *p)
 {
 	scom_encode_read_property(p);
@@ -329,9 +330,8 @@ static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
 	return 0;
 
 except:
-	return -1;  // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error
 }
-
 
 int xcic_intl_port_exchange(lua_State *L, struct xcic_port *xp, scom_frame_t *f)
 {
@@ -501,10 +501,10 @@ static char *xcic_intl_scom_strerror(scom_error_t error)
 	}
 }
 
-static int xcic_read_le32(lua_State *L)
+static int xcic_unpack_le32(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
-		return luaL_error(L, "Usage: xcic.read_le32(data)");
+		return luaL_error(L, "Usage: xcic.unpack_le32(data)");
 
 	size_t data_len;
 	const char *data = lua_tolstring(L, 1, &data_len);
@@ -520,10 +520,10 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_read_le16(lua_State *L)
+static int xcic_unpack_le16(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
-		return luaL_error(L, "Usage: xcic.read_le16(data)");
+		return luaL_error(L, "Usage: xcic.unpack_le16(data)");
 
 	size_t data_len;
 	const char *data = lua_tolstring(L, 1, &data_len);
@@ -539,10 +539,10 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_read_le_float(lua_State *L)
+static int xcic_unpack_le_float(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
-		return luaL_error(L, "Usage: xcic.read_le_float(data)");
+		return luaL_error(L, "Usage: xcic.unpack_le_float(data)");
 
 	size_t data_len;
 	const char *data = lua_tolstring(L, 1, &data_len);
@@ -551,6 +551,37 @@ static int xcic_read_le_float(lua_State *L)
 		xcic_lua_except(L, "invalid le float length");
 
 	lua_pushnumber(L, (lua_Number)scom_read_le_float(data));
+
+	return 1;
+
+except:
+	return lua_error(L);
+}
+
+static int xcic_unpack_software_version(lua_State *L)
+{
+	if (lua_gettop(L) < 1)
+		return luaL_error(
+		    L,
+		    "Usage: xcic.unpack_software_version(msb_data, lsb_data)");
+
+	size_t msb_data_len;
+	const char *msb_data = lua_tolstring(L, 1, &msb_data_len);
+
+	if (msb_data_len != 4)
+		xcic_lua_except(L, "invalid msb data length");
+
+	size_t lsb_data_len;
+	const char *lsb_data = lua_tolstring(L, 2, &lsb_data_len);
+
+	if (lsb_data_len != 4)
+		xcic_lua_except(L, "invalid lsb data length");
+
+	uint16_t msb = (uint16_t)scom_read_le_float(msb_data);
+	uint16_t lsb = (uint16_t)scom_read_le_float(lsb_data);
+
+	lua_pushfstring(L, "%d.%d.%d", (int)msb >> 8, (int)lsb >> 8,
+			(int)lsb & 0xFF);
 
 	return 1;
 
@@ -594,11 +625,14 @@ static const struct define defines[] = {
  * Lists of exporting: object and/or functions to the Lua
  */
 
-static const struct luaL_Reg R[] = {{"open_port", xcic_open_port},
-				    {"read_le32", xcic_read_le32},
-				    {"read_le16", xcic_read_le16},
-				    {"read_le_float", xcic_read_le_float},
-				    {NULL, NULL}};
+static const struct luaL_Reg R[] = {
+    {"open_port", xcic_open_port},
+    {"unpack_le32", xcic_unpack_le32},
+    {"unpack_le16", xcic_unpack_le16},
+    {"unpack_le_float", xcic_unpack_le_float},
+    {"unpack_le_float", xcic_unpack_le_float},
+    {"unpack_software_version", xcic_unpack_software_version},
+    {NULL, NULL}};
 
 static const struct luaL_Reg M[] = {
     {"read_user_info", xcic_port_read_user_info},
