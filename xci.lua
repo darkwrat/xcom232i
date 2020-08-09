@@ -21,3 +21,26 @@ end
 local xp = xcic.open_port('/dev/ttyS0')
 
 xci_print_info(xp)
+
+print('----')
+
+print(string.format('VALUE = %.2f Vdc (Battery overvoltage level)',
+	xcic.read_le_float(
+		xp:read_parameter_property(101, 1121, xcic.PARAMETER_PROPERTY_VALUE_QSP)
+	)))
+print(string.format('MIN = %.2f Vdc (Battery overvoltage level)',
+	xcic.read_le_float(
+		xp:read_parameter_property(101, 1121, xcic.PARAMETER_PROPERTY_MIN_QSP)
+	)))
+print(string.format('MAX = %.2f Vdc (Battery overvoltage level)',
+	xcic.read_le_float(
+		xp:read_parameter_property(101, 1121, xcic.PARAMETER_PROPERTY_MAX_QSP)
+	)))
+print(string.format('LEVEL = 0x%x (Battery overvoltage level)',
+	xcic.read_le16(
+		xp:read_parameter_property(101, 1121, xcic.PARAMETER_PROPERTY_LEVEL_QSP)
+	)))
+--print(string.format('UNSAVED_VALUE = %.2f Vdc (Battery overvoltage level)',
+--	xcic.read_le_float(
+--		xp:read_parameter_property(101, 1121, xcic.PARAMETER_PROPERTY_UNSAVED_VALUE_QSP)
+--	)))

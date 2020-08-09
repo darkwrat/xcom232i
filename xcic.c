@@ -45,11 +45,25 @@ static int xcic_read_le32(lua_State *L);
 static int xcic_read_le16(lua_State *L);
 static int xcic_read_le_float(lua_State *L);
 
-static int xcic_port_read_user_info(lua_State *L);
 static int xcic_port_close(lua_State *L);
 static int xcic_port_usable(lua_State *L);
 static int xcic_port_to_string(lua_State *L);
 static int xcic_port_gc(lua_State *L);
+
+#define XCIC_SCOM_PARAMETER_PROPERTY_VALUE_QSP 0x5
+#define XCIC_SCOM_PARAMETER_PROPERTY_MIN_QSP 0x6
+#define XCIC_SCOM_PARAMETER_PROPERTY_MAX_QSP 0x7
+#define XCIC_SCOM_PARAMETER_PROPERTY_LEVEL_QSP 0x8
+#define XCIC_SCOM_PARAMETER_PROPERTY_UNSAVED_VALUE_QSP 0xD
+
+#define XCIC_SCOM_PARAMETER_LEVEL_VIEW_ONLY 0x00
+#define XCIC_SCOM_PARAMETER_LEVEL_BASIC 0x10
+#define XCIC_SCOM_PARAMETER_LEVEL_EXPERT 0x20
+#define XCIC_SCOM_PARAMETER_LEVEL_INSTALLER 0x30
+#define XCIC_SCOM_PARAMETER_LEVEL_QSP 0x40
+
+static int xcic_port_read_user_info(lua_State *L);
+static int xcic_port_read_parameter_property(lua_State *L);
 
 /** Xcom-232i serial port handle. */
 struct xcic_port {
@@ -58,6 +72,9 @@ struct xcic_port {
 	/** Latch for mutual exclusion of DTE exchanges. */
 	box_latch_t *latch;
 };
+
+static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
+				   scom_frame_t *f, scom_property_t *p);
 
 static void xcic_intl_set_tty(struct termios *tty);
 static char *xcic_intl_scom_strerror(scom_error_t error);
@@ -230,34 +247,8 @@ static int xcic_port_read_user_info(lua_State *L)
 	p.object_id = lua_tointeger(L, 3);
 	p.property_id = 1;
 
-	scom_encode_read_property(&p);
-	if (f.last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "read property frame encoding failed with error %d (%s)",
-		    f.last_error, xcic_intl_scom_strerror(f.last_error));
-
-	scom_encode_request_frame(&f);
-	if (f.last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "data link frame encoding failed with error %d (%s)",
-		    f.last_error, xcic_intl_scom_strerror(f.last_error));
-
-	if (xcic_intl_port_exchange(L, xp, &f))
+	if (xcic_scom_read_property(L, xp, &f, &p))
 		goto except;
-
-	scom_decode_frame_data(&f);
-	if (f.last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "data link data decoding failed with error %d (%s)",
-		    f.last_error, xcic_intl_scom_strerror(f.last_error));
-
-	scom_initialize_property(&p, &f);
-
-	scom_decode_read_property(&p);
-	if (f.last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "read property decoding failed with error %d (%s)",
-		    f.last_error, xcic_intl_scom_strerror(f.last_error));
 
 	lua_pushlstring(L, p.value_buffer, p.value_length);
 
@@ -266,6 +257,81 @@ static int xcic_port_read_user_info(lua_State *L)
 except:
 	return lua_error(L);
 }
+
+static int xcic_port_read_parameter_property(lua_State *L)
+{
+	if (lua_gettop(L) < 3)
+		return luaL_error(L,
+				  "Usage: xp:read_parameter_property(dst_addr, "
+				  "object_id, property_id)");
+
+	struct xcic_port *xp =
+	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+
+	scom_frame_t f;
+	scom_property_t p;
+	char buffer[1024];
+
+	scom_initialize_frame(&f, buffer, sizeof(buffer));
+
+	f.src_addr = 1;
+	f.dst_addr = lua_tointeger(L, 2);
+
+	scom_initialize_property(&p, &f);
+
+	p.object_type = SCOM_PARAMETER_OBJECT_TYPE;
+	p.object_id = lua_tointeger(L, 3);
+	p.property_id = lua_tointeger(L, 4);
+
+	if (xcic_scom_read_property(L, xp, &f, &p))
+		goto except;
+
+	lua_pushlstring(L, p.value_buffer, p.value_length);
+
+	return 1;
+
+except:
+	return lua_error(L);
+}
+
+static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
+				   scom_frame_t *f, scom_property_t *p)
+{
+	scom_encode_read_property(p);
+	if (f->last_error != SCOM_ERROR_NO_ERROR)
+		xcic_lua_except(
+		    L, "read property frame encoding failed with error %d (%s)",
+		    f->last_error, xcic_intl_scom_strerror(f->last_error));
+
+	scom_encode_request_frame(f);
+	if (f->last_error != SCOM_ERROR_NO_ERROR)
+		xcic_lua_except(
+		    L, "data link frame encoding failed with error %d (%s)",
+		    f->last_error, xcic_intl_scom_strerror(f->last_error));
+
+	if (xcic_intl_port_exchange(L, xp, f))
+		goto except;
+
+	scom_decode_frame_data(f);
+	if (f->last_error != SCOM_ERROR_NO_ERROR)
+		xcic_lua_except(
+		    L, "data link data decoding failed with error %d (%s)",
+		    f->last_error, xcic_intl_scom_strerror(f->last_error));
+
+	scom_initialize_property(p, f);
+
+	scom_decode_read_property(p);
+	if (f->last_error != SCOM_ERROR_NO_ERROR)
+		xcic_lua_except(
+		    L, "read property decoding failed with error %d (%s)",
+		    f->last_error, xcic_intl_scom_strerror(f->last_error));
+
+	return 0;
+
+except:
+	return -1;  // caller must invoke `lua_error
+}
+
 
 int xcic_intl_port_exchange(lua_State *L, struct xcic_port *xp, scom_frame_t *f)
 {
@@ -508,7 +574,21 @@ struct define {
 	int value;
 };
 
-static const struct define defines[] = {{NULL, 0}};
+static const struct define defines[] = {
+    {"PARAMETER_PROPERTY_VALUE_QSP", XCIC_SCOM_PARAMETER_PROPERTY_VALUE_QSP},
+    {"PARAMETER_PROPERTY_MIN_QSP", XCIC_SCOM_PARAMETER_PROPERTY_MIN_QSP},
+    {"PARAMETER_PROPERTY_MAX_QSP", XCIC_SCOM_PARAMETER_PROPERTY_MAX_QSP},
+    {"PARAMETER_PROPERTY_LEVEL_QSP", XCIC_SCOM_PARAMETER_PROPERTY_LEVEL_QSP},
+    {"PARAMETER_PROPERTY_UNSAVED_VALUE_QSP",
+     XCIC_SCOM_PARAMETER_PROPERTY_UNSAVED_VALUE_QSP},
+
+    {"PARAMETER_LEVEL_VIEW_ONLY", XCIC_SCOM_PARAMETER_LEVEL_VIEW_ONLY},
+    {"PARAMETER_LEVEL_BASIC", XCIC_SCOM_PARAMETER_LEVEL_BASIC},
+    {"PARAMETER_LEVEL_EXPERT", XCIC_SCOM_PARAMETER_LEVEL_EXPERT},
+    {"PARAMETER_LEVEL_INSTALLER", XCIC_SCOM_PARAMETER_LEVEL_INSTALLER},
+    {"PARAMETER_LEVEL_QSP", XCIC_SCOM_PARAMETER_LEVEL_QSP},
+
+    {NULL, 0}};
 
 /*
  * Lists of exporting: object and/or functions to the Lua
@@ -521,9 +601,10 @@ static const struct luaL_Reg R[] = {{"open_port", xcic_open_port},
 				    {NULL, NULL}};
 
 static const struct luaL_Reg M[] = {
-    {"usable", xcic_port_usable},
     {"read_user_info", xcic_port_read_user_info},
+    {"read_parameter_property", xcic_port_read_parameter_property},
     {"close", xcic_port_close},
+    {"usable", xcic_port_usable},
     {"__tostring", xcic_port_to_string},
     {"__gc", xcic_port_gc},
     {NULL, NULL}};
