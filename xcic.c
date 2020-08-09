@@ -63,7 +63,7 @@ static char *xcic_intl_scom_strerror(scom_error_t error);
 static void xcic_intl_port_close(struct xcic_port *xp, box_latch_t *my_latch);
 
 static int xcic_intl_port_exchange(lua_State *L, struct xcic_port *xp,
-				   scom_frame_t *frame);
+				   scom_frame_t *f);
 static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf,
 				   size_t count);
 static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf,
@@ -220,78 +220,72 @@ static int xcic_port_read_user_info(lua_State *L)
 	if (!xp->latch)
 		return luaL_error(L, "stale port object");
 
-	scom_frame_t frame;
-	scom_property_t property;
+	scom_frame_t f;
+	scom_property_t p;
 	char buffer[1024];
 
-	scom_initialize_frame(&frame, buffer, sizeof(buffer));
+	scom_initialize_frame(&f, buffer, sizeof(buffer));
 
-	frame.src_addr = 1;
-	frame.dst_addr = lua_tointeger(L, 2);
+	f.src_addr = 1;
+	f.dst_addr = lua_tointeger(L, 2);
 
-	scom_initialize_property(&property, &frame);
+	scom_initialize_property(&p, &f);
 
-	property.object_type = SCOM_USER_INFO_OBJECT_TYPE;
-	property.object_id = lua_tointeger(L, 3);
-	property.property_id = 1;
+	p.object_type = SCOM_USER_INFO_OBJECT_TYPE;
+	p.object_id = lua_tointeger(L, 3);
+	p.property_id = 1;
 
-	scom_encode_read_property(&property);
+	scom_encode_read_property(&p);
 
-	if (frame.last_error != SCOM_ERROR_NO_ERROR)
+	if (f.last_error != SCOM_ERROR_NO_ERROR)
 		xcic_lua_except(
 		    L, "read property frame encoding failed with error %d (%s)",
-		    (int)frame.last_error,
-		    xcic_intl_scom_strerror(frame.last_error));
+		    f.last_error, xcic_intl_scom_strerror(f.last_error));
 
-	scom_encode_request_frame(&frame);
+	scom_encode_request_frame(&f);
 
-	if (frame.last_error != SCOM_ERROR_NO_ERROR)
+	if (f.last_error != SCOM_ERROR_NO_ERROR)
 		xcic_lua_except(
 		    L, "data link frame encoding failed with error %d (%s)",
-		    (int)frame.last_error,
-		    xcic_intl_scom_strerror(frame.last_error));
+		    f.last_error, xcic_intl_scom_strerror(f.last_error));
 
-	if (xcic_intl_port_exchange(L, xp, &frame))
+	if (xcic_intl_port_exchange(L, xp, &f))
 		goto except;
 
-	scom_decode_frame_header(&frame);
+	scom_decode_frame_header(&f);
 
-	if (frame.last_error != SCOM_ERROR_NO_ERROR)
+	if (f.last_error != SCOM_ERROR_NO_ERROR)
 		xcic_lua_except(
 		    L, "data link header decoding failed with error %d (%s)",
-		    (int)frame.last_error,
-		    xcic_intl_scom_strerror(frame.last_error));
+		    f.last_error, xcic_intl_scom_strerror(f.last_error));
 
-	ssize_t byte_count = xcic_intl_port_read(
-	    xp, &frame.buffer[SCOM_FRAME_HEADER_SIZE],
-	    scom_frame_length(&frame) - SCOM_FRAME_HEADER_SIZE);
+	ssize_t nb =
+	    xcic_intl_port_read(xp, &f.buffer[SCOM_FRAME_HEADER_SIZE],
+				scom_frame_length(&f) - SCOM_FRAME_HEADER_SIZE);
 
-	if (byte_count !=
-	    (ssize_t)(scom_frame_length(&frame) - SCOM_FRAME_HEADER_SIZE))
+	if (nb != (ssize_t)(scom_frame_length(&f) - SCOM_FRAME_HEADER_SIZE))
 		xcic_lua_except(
 		    L, "error when reading the data from the com port");
 
-	scom_decode_frame_data(&frame);
+	scom_decode_frame_data(&f);
 
-	if (frame.last_error != SCOM_ERROR_NO_ERROR)
+	if (f.last_error != SCOM_ERROR_NO_ERROR)
 		xcic_lua_except(
 		    L, "data link data decoding failed with error %d (%s)",
-		    (int)frame.last_error,
-		    xcic_intl_scom_strerror(frame.last_error));
+		    f.last_error, xcic_intl_scom_strerror(f.last_error));
 
-	scom_initialize_property(&property, &frame);
+	scom_initialize_property(&p, &f);
 
-	scom_decode_read_property(&property);
+	scom_decode_read_property(&p);
 
-	if (frame.last_error != SCOM_ERROR_NO_ERROR)
+	if (f.last_error != SCOM_ERROR_NO_ERROR)
 		xcic_lua_except(
 		    L, "read property decoding failed with error %d (%s)",
-		    (int)frame.last_error,
-		    xcic_intl_scom_strerror(frame.last_error));
+		    f.last_error, xcic_intl_scom_strerror(f.last_error));
 
 	box_latch_unlock(latch);
 
-	lua_pushlstring(L, property.value_buffer, property.value_length);
+	lua_pushlstring(L, p.value_buffer, p.value_length);
 
 	return 1;
 
@@ -301,23 +295,20 @@ except:
 	return lua_error(L);
 }
 
-int xcic_intl_port_exchange(lua_State *L, struct xcic_port *xp,
-			    scom_frame_t *frame)
+int xcic_intl_port_exchange(lua_State *L, struct xcic_port *xp, scom_frame_t *f)
 {
-	ssize_t byte_count =
-	    xcic_intl_port_write(xp, frame->buffer, scom_frame_length(frame));
+	ssize_t nb = xcic_intl_port_write(xp, f->buffer, scom_frame_length(f));
 
-	if (byte_count != (ssize_t)scom_frame_length(frame))
+	if (nb != (ssize_t)scom_frame_length(f))
 		xcic_lua_except(L, "error when writing to the com port");
 
-	scom_initialize_frame(frame, frame->buffer, frame->buffer_size);
+	scom_initialize_frame(f, f->buffer, f->buffer_size);
 
-	memset(frame->buffer, 0, frame->buffer_size);
+	memset(f->buffer, 0, f->buffer_size);
 
-	byte_count =
-	    xcic_intl_port_read(xp, frame->buffer, SCOM_FRAME_HEADER_SIZE);
+	nb = xcic_intl_port_read(xp, f->buffer, SCOM_FRAME_HEADER_SIZE);
 
-	if (byte_count != SCOM_FRAME_HEADER_SIZE)
+	if (nb != SCOM_FRAME_HEADER_SIZE)
 		xcic_lua_except(
 		    L, "error when reading the header from the com port");
 
