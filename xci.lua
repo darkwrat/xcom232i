@@ -1,5 +1,3 @@
-#!/usr/bin/env tarantool
-
 require('strict').on()
 
 local xcic = require('xcic')
@@ -39,7 +37,7 @@ local xci_vt_psol_gauge =
 local xci_vt_upv_gauge =
 	metrics.gauge('xci_vt_upv')
 
-metrics.register_callback(function()
+local function xci_metrics_callback()
 	-- xtender
 	xci_xt_battery_voltage_gauge:set(
 		xcic.unpack_le_float(
@@ -95,8 +93,17 @@ metrics.register_callback(function()
 		xcic.unpack_le_float(
 			xp:read_user_info(301, 11002)
 		))
-end)
+end
 
-http_server:set_router(http_router)
-http_router:route({path = '/metrics'}, function(...) return http_handler(...) end)
-http_server:start()
+local function xci_start()
+	metrics.register_callback(xci_metrics_callback)
+
+	http_server:set_router(http_router)
+	http_router:route({path = '/metrics'}, function(...) return http_handler(...) end)
+	http_server:start()
+end
+
+
+return {
+	start = xci_start
+}
