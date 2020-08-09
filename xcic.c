@@ -45,6 +45,7 @@ static int xcic_unpack_le32(lua_State *L);
 static int xcic_unpack_le16(lua_State *L);
 static int xcic_unpack_le_float(lua_State *L);
 static int xcic_unpack_software_version(lua_State *L);
+static int xcic_unpack_bool(lua_State *L);
 
 static int xcic_port_close(lua_State *L);
 static int xcic_port_usable(lua_State *L);
@@ -589,6 +590,25 @@ except:
 	return lua_error(L);
 }
 
+static int xcic_unpack_bool(lua_State *L)
+{
+	if (lua_gettop(L) < 1)
+		return luaL_error(L, "Usage: xcic.unpack_bool(data)");
+
+	size_t data_len;
+	const char *data = lua_tolstring(L, 1, &data_len);
+
+	if (data_len != 1)
+		xcic_lua_except(L, "invalid bool length");
+
+	lua_pushboolean(L, *data);
+
+	return 1;
+
+except:
+	return lua_error(L);
+}
+
 static ssize_t xcic_intl_open_cb(va_list ap)
 {
 	char *pathname = va_arg(ap, char *);
@@ -632,6 +652,7 @@ static const struct luaL_Reg R[] = {
     {"unpack_le_float", xcic_unpack_le_float},
     {"unpack_le_float", xcic_unpack_le_float},
     {"unpack_software_version", xcic_unpack_software_version},
+    {"unpack_bool", xcic_unpack_bool},
     {NULL, NULL}};
 
 static const struct luaL_Reg M[] = {
