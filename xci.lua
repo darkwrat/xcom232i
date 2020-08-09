@@ -69,11 +69,11 @@ local function xci_metrics_callback()
 		))
 	xci_xt_input_frequency_gauge:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3014)
+			xp:read_user_info(101, 3084)
 		))
 	xci_xt_output_frequency_gauge:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3024)
+			xp:read_user_info(101, 3085)
 		))
 
 	-- variotrack
