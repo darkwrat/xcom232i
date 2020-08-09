@@ -38,6 +38,14 @@ function xci_print_info(xp)
 		xcic.unpack_le_float(
 			xp:read_user_info(101, 3022)
 		)))
+	print(string.format('F in = %.2f Hz (Input frequency)',
+		xcic.unpack_le_float(
+			xp:read_user_info(101, 3014)
+		)))
+	print(string.format('F out = %.2f Hz (Output Frequency)',
+		xcic.unpack_le_float(
+			xp:read_user_info(101, 3024)
+		)))
 
 	-- variotrack
 	print(string.format('PVxP = %.2f kW (Max power production for the current day)',
