@@ -47,6 +47,7 @@ static int xcic_read_le_float(lua_State *L);
 
 static int xcic_port_read_user_info(lua_State *L);
 static int xcic_port_close(lua_State *L);
+static int xcic_port_usable(lua_State *L);
 static int xcic_port_to_string(lua_State *L);
 static int xcic_port_gc(lua_State *L);
 
@@ -143,6 +144,19 @@ static void xcic_intl_set_tty(struct termios *tty)
 	tty->c_cflag &= ~PARODD;	  // even parity
 	tty->c_cflag &= ~CSTOPB;
 	tty->c_cflag &= ~CRTSCTS;
+}
+
+static int xcic_port_usable(lua_State *L)
+{
+	if (lua_gettop(L) < 1)
+		return luaL_error(L, "Usage: xp:usable()");
+
+	struct xcic_port *xp =
+	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+
+	lua_pushboolean(L, xp->fd != -1);
+
+	return 1;
 }
 
 static int xcic_port_close(lua_State *L)
@@ -507,6 +521,7 @@ static const struct luaL_Reg R[] = {{"open_port", xcic_open_port},
 				    {NULL, NULL}};
 
 static const struct luaL_Reg M[] = {
+    {"usable", xcic_port_usable},
     {"read_user_info", xcic_port_read_user_info},
     {"close", xcic_port_close},
     {"__tostring", xcic_port_to_string},
