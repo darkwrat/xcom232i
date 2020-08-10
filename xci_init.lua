@@ -1,5 +1,7 @@
 #!/usr/bin/env tarantool
 
+fiber = require('fiber')
+
 box.cfg{
 	listen = 3301,
 	custom_proc_title = 'xci',
