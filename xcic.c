@@ -20,12 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <tarantool/module.h>
-
-#include <lauxlib.h>
-#include <lua.h>
-#include <lualib.h>
-
 #include <errno.h>
 #include <fcntl.h>
 #include <float.h>
@@ -33,6 +27,12 @@ SOFTWARE.
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+
+#include <tarantool/module.h>
+
+#include <lauxlib.h>
+#include <lua.h>
+#include <lualib.h>
 
 #include <scom_property.h>
 
@@ -101,12 +101,11 @@ static ssize_t xcic_intl_open_cb(va_list ap);
 
 static int xcic_open_port(lua_State *L)
 {
-	struct xcic_port *xp = NULL;
-
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xcic.open_port(pathname)");
 
-	xp = (struct xcic_port *)lua_newuserdata(L, sizeof(*xp));
+	struct xcic_port *xp =
+	    (struct xcic_port *)lua_newuserdata(L, sizeof(*xp));
 
 	memset(xp, 0, sizeof(*xp));
 
@@ -193,11 +192,10 @@ static int xcic_port_close(lua_State *L)
 
 static void xcic_intl_port_close(struct xcic_port *xp)
 {
-	if (xp && xp->fd != -1) {
-		int fd = xp->fd;
-		xp->fd = -1;
-		(void)coio_close(fd);
-	}
+	int fd = xp->fd;
+	xp->fd = -1;
+
+	(void)coio_close(fd);
 }
 
 static int xcic_port_to_string(lua_State *L)
