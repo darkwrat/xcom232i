@@ -1,13 +1,10 @@
 require('strict').on()
 
-local xcic = require('xcic')
 local metrics = require('metrics')
 
 local http_router = require('http.router').new()
 local http_handler = require('metrics.plugins.prometheus').collect_http
 local http_server = require('http.server').new('0.0.0.0', 8088)
-
-xp = xcic.open_port('/dev/ttyS0')
 
 local function xci_metric_callback(self)
 	-- xtender
