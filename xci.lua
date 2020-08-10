@@ -7,7 +7,7 @@ local http_router = require('http.router').new()
 local http_handler = require('metrics.plugins.prometheus').collect_http
 local http_server = require('http.server').new('0.0.0.0', 8088)
 
-local xp = xcic.open_port('/dev/ttyS0')
+xp = xcic.open_port('/dev/ttyS0')
 
 local xci_xt_battery_voltage_gauge =
 	metrics.gauge('xci_xt_battery_voltage')
