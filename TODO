@@ -1,0 +1,12 @@
+1. A function to hex-dump a faulty frame to tarantool debug log.
+2. Writing parameters.
+3. Dynamic memory allocation with tarantool/small cord_slab_cache().
+4. A script for reading messages.
+5. A script for retrieving files.
+6. Possibly reimplement locking with fiber_cond instead of latching.
+7. Timeouts.
+8. Exclusively flock the serial port file.
+9. Sort out the inability to get xtender software version.
+10. Unhardcode device addresses and support multiple devices.
+11. Enumerate object IDs somewhere with meaningful descriptions.
+12. Export metrics for the states of auxillary relays.
