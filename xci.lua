@@ -72,9 +72,17 @@ local function xci_metric_callback(self)
 		xcic.unpack_le16(
 			xp:read_user_info(101, 3031)
 		))
+	self.gauge.xt_aux1_mode:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 3054)
+		))
 	self.gauge.xt_aux2:set(
 		xcic.unpack_le16(
 			xp:read_user_info(101, 3032)
+		))
+	self.gauge.xt_aux2_mode:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 3055)
 		))
 	self.gauge.xt_ubat:set(
 		xcic.unpack_le_float(
@@ -138,18 +146,36 @@ local function xci_metric_callback(self)
 		xcic.unpack_le16(
 			xp:read_user_info(301, 11061)
 		))
+	self.gauge.vt_aux1_mode:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 11063)
+		))
 	self.gauge.vt_aux2:set(
 		xcic.unpack_le16(
 			xp:read_user_info(301, 11062)
 		))
+	self.gauge.vt_aux2_mode:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 11064)
+		))
+
 	self.gauge.vt_aux3:set(
 		xcic.unpack_le16(
 			xp:read_user_info(301, 11077)
+		))
+	self.gauge.vt_aux3_mode:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 11064)
 		))
 	self.gauge.vt_aux4:set(
 		xcic.unpack_le16(
 			xp:read_user_info(301, 11078)
 		))
+	self.gauge.vt_aux4_mode:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 11080)
+		))
+
 
 	-- bsp
 	self.gauge.bsp_ubat:set(

@@ -1,5 +1,5 @@
-
-tations": {
+{
+  "annotations": {
     "list": [
       {
         "builtIn": 1,
@@ -999,7 +999,7 @@ tations": {
       "fill": 0,
       "fillGradient": 3,
       "gridPos": {
-        "h": 12,
+        "h": 14,
         "w": 8,
         "x": 8,
         "y": 21
@@ -1331,7 +1331,7 @@ tations": {
       "highlightCards": true,
       "id": 14,
       "legend": {
-        "show": true
+        "show": false
       },
       "pluginVersion": "7.1.3",
       "reverseYBuckets": false,
@@ -1363,7 +1363,7 @@ tations": {
         "decimals": 0,
         "format": "short",
         "logBase": 1,
-        "max": "12",
+        "max": "13",
         "min": "0",
         "show": true,
         "splitFactor": null
@@ -1373,7 +1373,20 @@ tations": {
       "yBucketSize": 1
     },
     {
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateBlues",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "timeseries",
       "datasource": null,
+      "description": "0:Invalid value\\\n1:Inverter\\\n2:Charger\\\n3:Boost\\\n4:Injection",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1397,58 +1410,397 @@ tations": {
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 8,
-        "x": 8,
-        "y": 33
+        "x": 0,
+        "y": 35
       },
-      "id": 17,
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": false
+      "heatmap": {},
+      "hideZeroBuckets": false,
+      "highlightCards": true,
+      "id": 20,
+      "legend": {
+        "show": false
       },
       "pluginVersion": "7.1.3",
+      "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "xci_xt_transfert",
-          "interval": "",
-          "legendFormat": "Transfer relay",
-          "refId": "A"
-        },
-        {
-          "expr": "xci_xt_rme",
+          "expr": "xci_xt_mode",
           "format": "time_series",
+          "instant": false,
           "interval": "",
-          "legendFormat": "Remote entry",
-          "refId": "B"
-        },
-        {
-          "expr": "xci_vt_aux1",
-          "interval": "",
-          "legendFormat": "AUX1",
-          "refId": "C"
-        },
-        {
-          "expr": "xci_vt_aux2",
-          "interval": "",
-          "legendFormat": "AUX2",
-          "refId": "D"
+          "legendFormat": "Mode",
+          "refId": "A"
         }
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "State of relays",
-      "type": "gauge"
+      "title": "XT - Mode",
+      "tooltip": {
+        "show": true,
+        "showHistogram": false
+      },
+      "tooltipDecimals": 0,
+      "type": "heatmap",
+      "xAxis": {
+        "show": true
+      },
+      "xBucketNumber": null,
+      "xBucketSize": null,
+      "yAxis": {
+        "decimals": 0,
+        "format": "short",
+        "logBase": 1,
+        "max": "5",
+        "min": "0",
+        "show": true,
+        "splitFactor": null
+      },
+      "yBucketBound": "auto",
+      "yBucketNumber": null,
+      "yBucketSize": 1
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "fill": 0,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 8,
+        "y": 35
+      },
+      "hiddenSeries": false,
+      "id": 17,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "connected",
+      "percentage": false,
+      "pluginVersion": "7.1.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": true,
+      "targets": [
+        {
+          "expr": "xci_xt_state",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT State",
+          "refId": "A"
+        },
+        {
+          "expr": "xci_xt_aux1",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT AUX1",
+          "refId": "C"
+        },
+        {
+          "expr": "xci_xt_aux2",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT AUX2",
+          "refId": "D"
+        },
+        {
+          "expr": "xci_xt_rme",
+          "format": "time_series",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT Remote entry",
+          "refId": "B"
+        },
+        {
+          "expr": "xci_xt_transfert",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT Transfer relay",
+          "refId": "H"
+        },
+        {
+          "expr": "xci_xt_rel_out",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT Output relay",
+          "refId": "I"
+        },
+        {
+          "expr": "xci_xt_rel_gnd",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT Ground relay",
+          "refId": "J"
+        },
+        {
+          "expr": "xci_xt_rel_neutral",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT Neutral relay",
+          "refId": "K"
+        },
+        {
+          "expr": "xci_vt_state",
+          "interval": "",
+          "legendFormat": "VT State",
+          "refId": "E"
+        },
+        {
+          "expr": "xci_vt_aux1",
+          "interval": "",
+          "legendFormat": "VT AUX1",
+          "refId": "F"
+        },
+        {
+          "expr": "xci_vt_aux2",
+          "interval": "",
+          "legendFormat": "VT AUX2",
+          "refId": "G"
+        },
+        {
+          "expr": "xci_vt_aux3",
+          "interval": "",
+          "legendFormat": "VT AUX3",
+          "refId": "L"
+        },
+        {
+          "expr": "xci_vt_aux4",
+          "interval": "",
+          "legendFormat": "VT AUX4",
+          "refId": "M"
+        },
+        {
+          "expr": "xci_xt_rme",
+          "interval": "",
+          "legendFormat": "VT Remote entry",
+          "refId": "N"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "States of relays",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "decimals": 0,
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": "1",
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "description": "0: Invalid value\\\n1: Automatic\\\n2: Reversed automatic\\\n3: Manual ON\\\n4: Manual OFF\\\n5: Coupled for generator start",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "fill": 0,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 5,
+        "w": 7,
+        "x": 17,
+        "y": 35
+      },
+      "hiddenSeries": false,
+      "id": 21,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "connected",
+      "percentage": false,
+      "pluginVersion": "7.1.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": true,
+      "targets": [
+        {
+          "expr": "xci_xt_aux1_mode",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT AUX1 Mode",
+          "refId": "C"
+        },
+        {
+          "expr": "xci_xt_aux2_mode",
+          "instant": false,
+          "interval": "",
+          "legendFormat": "XT AUX2 Mode",
+          "refId": "D"
+        },
+        {
+          "expr": "xci_vt_aux1_mode",
+          "interval": "",
+          "legendFormat": "VT AUX1 Mode",
+          "refId": "F"
+        },
+        {
+          "expr": "xci_vt_aux2_mode",
+          "interval": "",
+          "legendFormat": "VT AUX2 Mode",
+          "refId": "G"
+        },
+        {
+          "expr": "xci_vt_aux3_mode",
+          "interval": "",
+          "legendFormat": "VT AUX3 Mode",
+          "refId": "L"
+        },
+        {
+          "expr": "xci_vt_aux4_mode",
+          "interval": "",
+          "legendFormat": "VT AUX4 Mode",
+          "refId": "M"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Modes of relays",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "decimals": 0,
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": "6",
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
-  "refresh": false,
+  "refresh": "1m",
   "schemaVersion": 26,
   "style": "dark",
   "tags": [],
@@ -1456,7 +1808,7 @@ tations": {
     "list": []
   },
   "time": {
-    "from": "now-12h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
@@ -1476,5 +1828,5 @@ tations": {
   "timezone": "",
   "title": "XCI",
   "uid": "Sl6Ey-IMk",
-  "version": 13
+  "version": 20
 }

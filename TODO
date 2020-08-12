@@ -9,4 +9,3 @@
 9. Sort out the inability to get xtender software version.
 10. Unhardcode device addresses and support multiple devices.
 11. Enumerate object IDs somewhere with meaningful descriptions.
-12. Export metrics for the states of auxillary relays.
