@@ -1,4 +1,4 @@
-1. A function to hex-dump a faulty frame to tarantool debug log.
+1. Fix `xcic_intl_dump_faulty_frame` by using static small allocator.
 2. Writing parameters.
 3. Dynamic memory allocation with tarantool/small cord_slab_cache().
 4. A script for reading messages.

@@ -20,6 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <float.h>
@@ -41,6 +42,8 @@ SOFTWARE.
 LUA_API int luaopen_xcic(lua_State *L);
 
 static int xcic_open_port(lua_State *L);
+static int xcic_calc_checksum(lua_State *L);
+
 static int xcic_unpack_le32(lua_State *L);
 static int xcic_unpack_le16(lua_State *L);
 static int xcic_unpack_le_float(lua_State *L);
@@ -51,19 +54,6 @@ static int xcic_port_close(lua_State *L);
 static int xcic_port_usable(lua_State *L);
 static int xcic_port_to_string(lua_State *L);
 static int xcic_port_gc(lua_State *L);
-
-#define XCIC_SCOM_PARAMETER_PROPERTY_VALUE_QSP 0x5
-#define XCIC_SCOM_PARAMETER_PROPERTY_MIN_QSP 0x6
-#define XCIC_SCOM_PARAMETER_PROPERTY_MAX_QSP 0x7
-#define XCIC_SCOM_PARAMETER_PROPERTY_LEVEL_QSP 0x8
-#define XCIC_SCOM_PARAMETER_PROPERTY_UNSAVED_VALUE_QSP 0xD
-
-#define XCIC_SCOM_PARAMETER_LEVEL_VIEW_ONLY 0x00
-#define XCIC_SCOM_PARAMETER_LEVEL_BASIC 0x10
-#define XCIC_SCOM_PARAMETER_LEVEL_EXPERT 0x20
-#define XCIC_SCOM_PARAMETER_LEVEL_INSTALLER 0x30
-#define XCIC_SCOM_PARAMETER_LEVEL_QSP 0x40
-
 static int xcic_port_read_user_info(lua_State *L);
 static int xcic_port_read_parameter_property(lua_State *L);
 
@@ -88,6 +78,8 @@ static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf,
 				   size_t count);
 static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf,
 				    size_t count);
+static void xcic_intl_dump_faulty_frame(scom_frame_t *f);
+static uint16_t xcic_intl_calc_checksum(const char *data, uint_fast16_t length);
 
 static ssize_t xcic_intl_open_cb(va_list ap);
 
@@ -99,7 +91,7 @@ static ssize_t xcic_intl_open_cb(va_list ap);
 
 #define xcic_lua_except(L, ...) xcic_lua_except_to(except, L, __VA_ARGS__)
 
-static int xcic_open_port(lua_State *L)
+int xcic_open_port(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xcic.open_port(pathname)");
@@ -138,7 +130,7 @@ except:
 	return lua_error(L);
 }
 
-static void xcic_intl_set_tty(struct termios *tty)
+void xcic_intl_set_tty(struct termios *tty)
 {
 	(void)cfsetospeed(tty, B38400);
 	(void)cfsetispeed(tty, B38400);
@@ -164,7 +156,7 @@ static void xcic_intl_set_tty(struct termios *tty)
 	tty->c_cflag &= ~CRTSCTS;
 }
 
-static int xcic_port_usable(lua_State *L)
+int xcic_port_usable(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xp:usable()");
@@ -177,7 +169,7 @@ static int xcic_port_usable(lua_State *L)
 	return 1;
 }
 
-static int xcic_port_close(lua_State *L)
+int xcic_port_close(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xp:close()");
@@ -190,7 +182,7 @@ static int xcic_port_close(lua_State *L)
 	return 0;
 }
 
-static void xcic_intl_port_close(struct xcic_port *xp)
+void xcic_intl_port_close(struct xcic_port *xp)
 {
 	int fd = xp->fd;
 	xp->fd = -1;
@@ -198,7 +190,7 @@ static void xcic_intl_port_close(struct xcic_port *xp)
 	(void)coio_close(fd);
 }
 
-static int xcic_port_to_string(lua_State *L)
+int xcic_port_to_string(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xp:tostring()");
@@ -211,7 +203,7 @@ static int xcic_port_to_string(lua_State *L)
 	return 1;
 }
 
-static int xcic_port_gc(lua_State *L)
+int xcic_port_gc(lua_State *L)
 {
 	struct xcic_port *xp =
 	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
@@ -223,7 +215,7 @@ static int xcic_port_gc(lua_State *L)
 	return 0;
 }
 
-static int xcic_port_read_user_info(lua_State *L)
+int xcic_port_read_user_info(lua_State *L)
 {
 	if (lua_gettop(L) < 3)
 		return luaL_error(
@@ -234,7 +226,7 @@ static int xcic_port_read_user_info(lua_State *L)
 
 	scom_frame_t f;
 	scom_property_t p;
-	char buffer[1024];
+	char buffer[1024]; // fixme
 
 	scom_initialize_frame(&f, buffer, sizeof(buffer));
 
@@ -258,7 +250,7 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_port_read_parameter_property(lua_State *L)
+int xcic_port_read_parameter_property(lua_State *L)
 {
 	if (lua_gettop(L) < 3)
 		return luaL_error(L,
@@ -270,7 +262,7 @@ static int xcic_port_read_parameter_property(lua_State *L)
 
 	scom_frame_t f;
 	scom_property_t p;
-	char buffer[1024];
+	char buffer[1024]; // fixme
 
 	scom_initialize_frame(&f, buffer, sizeof(buffer));
 
@@ -294,8 +286,8 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_intl_read_property(lua_State *L, struct xcic_port *xp,
-				   scom_frame_t *f, scom_property_t *p)
+int xcic_intl_read_property(lua_State *L, struct xcic_port *xp, scom_frame_t *f,
+			    scom_property_t *p)
 {
 	scom_encode_read_property(p);
 	if (f->last_error != SCOM_ERROR_NO_ERROR)
@@ -313,10 +305,12 @@ static int xcic_intl_read_property(lua_State *L, struct xcic_port *xp,
 		goto except;
 
 	scom_decode_frame_data(f);
-	if (f->last_error != SCOM_ERROR_NO_ERROR)
+	if (f->last_error != SCOM_ERROR_NO_ERROR) {
+		xcic_intl_dump_faulty_frame(f);
 		xcic_lua_except(
 		    L, "data link data decoding failed with error %d (%s)",
 		    f->last_error, xcic_intl_scom_strerror(f->last_error));
+	}
 
 	scom_initialize_property(p, f);
 
@@ -372,8 +366,7 @@ except:
 	return -1; // caller must invoke `lua_error`
 }
 
-static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf,
-				   size_t count)
+ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf, size_t count)
 {
 	size_t l = count;
 	ssize_t n = 0;
@@ -405,8 +398,7 @@ static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf,
 	return count - l;
 }
 
-static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf,
-				    size_t count)
+ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf, size_t count)
 {
 	size_t l = count;
 	ssize_t n = 0;
@@ -438,7 +430,44 @@ static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf,
 	return count - l;
 }
 
-static char *xcic_intl_scom_strerror(scom_error_t error)
+void xcic_intl_dump_faulty_frame(scom_frame_t *f)
+{
+	if (!f->service_flags.is_response)
+		return;
+
+	uint16_t cs =
+	    scom_read_le16(&f->buffer[SCOM_FRAME_HEADER_SIZE + f->data_length]);
+	uint16_t real_cs = xcic_intl_calc_checksum(
+	    &f->buffer[SCOM_FRAME_HEADER_SIZE], f->data_length);
+
+	uint8_t *p = (uint8_t *)f->buffer;
+
+	char buf[4096]; // fixme
+	char *bp = buf;
+	for (size_t i = 0; i < scom_frame_length(f); i++) {
+		bp += sprintf(bp, "\\%d", p[i]);
+	}
+	*bp = '\0';
+
+	say_info("xcic: response frame: error %d src %d dst %d len "
+		 "%d dlen %d cs %d real %d data %s",
+		 f->service_flags.error, f->src_addr, f->dst_addr,
+		 scom_frame_length(f), f->data_length, cs, real_cs, buf);
+}
+
+uint16_t xcic_intl_calc_checksum(const char *data, uint_fast16_t length)
+{
+	uint_fast8_t A = 0xFF, B = 0;
+
+	while (length--) {
+		A = (A + *data++) & 0xFF;
+		B = (B + A) & 0xFF;
+	}
+
+	return (B & 0xFF) << 8 | (A & 0xFF);
+}
+
+char *xcic_intl_scom_strerror(scom_error_t error)
 {
 	switch (error) {
 	case SCOM_ERROR_NO_ERROR:
@@ -500,7 +529,20 @@ static char *xcic_intl_scom_strerror(scom_error_t error)
 	}
 }
 
-static int xcic_unpack_le32(lua_State *L)
+int xcic_calc_checksum(lua_State *L)
+{
+	if (lua_gettop(L) < 1)
+		return luaL_error(L, "Usage: xcic.calc_checksum(data)");
+
+	size_t data_len;
+	const char *data = lua_tolstring(L, 1, &data_len);
+
+	lua_pushinteger(L, xcic_intl_calc_checksum(data, (uint16_t)data_len));
+
+	return 1;
+}
+
+int xcic_unpack_le32(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xcic.unpack_le32(data)");
@@ -519,7 +561,7 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_unpack_le16(lua_State *L)
+int xcic_unpack_le16(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xcic.unpack_le16(data)");
@@ -538,7 +580,7 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_unpack_le_float(lua_State *L)
+int xcic_unpack_le_float(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xcic.unpack_le_float(data)");
@@ -557,7 +599,7 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_unpack_software_version(lua_State *L)
+int xcic_unpack_software_version(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(
@@ -588,7 +630,7 @@ except:
 	return lua_error(L);
 }
 
-static int xcic_unpack_bool(lua_State *L)
+int xcic_unpack_bool(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xcic.unpack_bool(data)");
@@ -607,7 +649,7 @@ except:
 	return lua_error(L);
 }
 
-static ssize_t xcic_intl_open_cb(va_list ap)
+ssize_t xcic_intl_open_cb(va_list ap)
 {
 	char *pathname = va_arg(ap, char *);
 	int flags = va_arg(ap, int);
@@ -624,20 +666,7 @@ struct define {
 };
 
 static const struct define defines[] = {
-    {"PARAMETER_PROPERTY_VALUE_QSP", XCIC_SCOM_PARAMETER_PROPERTY_VALUE_QSP},
-    {"PARAMETER_PROPERTY_MIN_QSP", XCIC_SCOM_PARAMETER_PROPERTY_MIN_QSP},
-    {"PARAMETER_PROPERTY_MAX_QSP", XCIC_SCOM_PARAMETER_PROPERTY_MAX_QSP},
-    {"PARAMETER_PROPERTY_LEVEL_QSP", XCIC_SCOM_PARAMETER_PROPERTY_LEVEL_QSP},
-    {"PARAMETER_PROPERTY_UNSAVED_VALUE_QSP",
-     XCIC_SCOM_PARAMETER_PROPERTY_UNSAVED_VALUE_QSP},
-
-    {"PARAMETER_LEVEL_VIEW_ONLY", XCIC_SCOM_PARAMETER_LEVEL_VIEW_ONLY},
-    {"PARAMETER_LEVEL_BASIC", XCIC_SCOM_PARAMETER_LEVEL_BASIC},
-    {"PARAMETER_LEVEL_EXPERT", XCIC_SCOM_PARAMETER_LEVEL_EXPERT},
-    {"PARAMETER_LEVEL_INSTALLER", XCIC_SCOM_PARAMETER_LEVEL_INSTALLER},
-    {"PARAMETER_LEVEL_QSP", XCIC_SCOM_PARAMETER_LEVEL_QSP},
-
-    {NULL, 0}};
+    {"FRAME_HEADER_SIZE", SCOM_FRAME_HEADER_SIZE}, {NULL, 0}};
 
 /*
  * Lists of exporting: object and/or functions to the Lua
@@ -645,6 +674,7 @@ static const struct define defines[] = {
 
 static const struct luaL_Reg R[] = {
     {"open_port", xcic_open_port},
+    {"calc_checksum", xcic_calc_checksum},
     {"unpack_le32", xcic_unpack_le32},
     {"unpack_le16", xcic_unpack_le16},
     {"unpack_le_float", xcic_unpack_le_float},
