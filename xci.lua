@@ -8,50 +8,6 @@ local http_server = require('http.server').new('0.0.0.0', 8088)
 
 local function xci_metric_callback(self)
 	-- xtender
-	self.gauge.xt_battery_voltage:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3000)
-		))
-	self.gauge.xt_battery_soc:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3007)
-		))
-	self.gauge.xt_battery_temperature:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3001)
-		))
-	self.gauge.xt_input_voltage:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3011)
-		))
-	self.gauge.xt_output_voltage:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3021)
-		))
-	self.gauge.xt_input_current:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3012)
-		))
-	self.gauge.xt_output_current:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3022)
-		))
-	self.gauge.xt_input_frequency:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3014)
-		))
-	self.gauge.xt_output_frequency:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3024)
-		))
-	self.gauge.xt_input_power:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3138)
-		))
-	self.gauge.xt_output_power:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(101, 3139)
-		))
 	self.gauge.xt_ubat_min:set(
 		xcic.unpack_le_float(
 			xp:read_user_info(101, 3090)
@@ -126,22 +82,6 @@ local function xci_metric_callback(self)
 		))
 
 	-- variotrack
-	self.gauge.vt_ed:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(301, 11007)
-		))
-	self.gauge.vt_pvxp:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(301, 11019)
-		))
-	self.gauge.vt_psol:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(301, 11004)
-		))
-	self.gauge.vt_upv:set(
-		xcic.unpack_le_float(
-			xp:read_user_info(301, 11002)
-		))
 	self.gauge.vt_psom:set(
 		xcic.unpack_le_float(
 			xp:read_user_info(301, 11043)
