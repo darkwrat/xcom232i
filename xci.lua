@@ -40,6 +40,10 @@ local function xci_metric_callback(self)
 		xcic.unpack_le16(
 			xp:read_user_info(101, 3010)
 		))
+	self.gauge.xt_state:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 3049)
+		))
 	self.gauge.xt_mode:set(
 		xcic.unpack_le16(
 			xp:read_user_info(101, 3028)
@@ -48,17 +52,29 @@ local function xci_metric_callback(self)
 		xcic.unpack_le16(
 			xp:read_user_info(101, 3020)
 		))
+	self.gauge.xt_rel_out:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 3030)
+		))
+	self.gauge.xt_rel_gnd:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 3074)
+		))
+	self.gauge.xt_rel_neutral:set(
+		xcic.unpack_le16(
+			xp:read_user_info(101, 3075)
+		))
 	self.gauge.xt_rme:set(
 		xcic.unpack_le16(
 			xp:read_user_info(101, 3086)
 		))
 	self.gauge.xt_aux1:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3054)
+			xp:read_user_info(101, 3031)
 		))
 	self.gauge.xt_aux2:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3055)
+			xp:read_user_info(101, 3032)
 		))
 	self.gauge.xt_ubat:set(
 		xcic.unpack_le_float(
@@ -85,6 +101,10 @@ local function xci_metric_callback(self)
 	self.gauge.vt_psom:set(
 		xcic.unpack_le_float(
 			xp:read_user_info(301, 11043)
+		))
+	self.gauge.vt_state:set(
+		xcic.unpack_le16(
+			xp:read_user_info(301, 11069)
 		))
 	self.gauge.vt_mode:set(
 		xcic.unpack_le16(
@@ -121,6 +141,14 @@ local function xci_metric_callback(self)
 	self.gauge.vt_aux2:set(
 		xcic.unpack_le16(
 			xp:read_user_info(301, 11062)
+		))
+	self.gauge.vt_aux3:set(
+		xcic.unpack_le16(
+			xp:read_user_info(301, 11077)
+		))
+	self.gauge.vt_aux4:set(
+		xcic.unpack_le16(
+			xp:read_user_info(301, 11078)
 		))
 
 	-- bsp
