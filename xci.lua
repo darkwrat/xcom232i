@@ -1,198 +1,218 @@
 require('strict').on()
 
+local log = require('log')
 local metrics = require('metrics')
 
 local http_router = require('http.router').new()
 local http_handler = require('metrics.plugins.prometheus').collect_http
 local http_server = require('http.server').new('0.0.0.0', 8088)
 
+function xci_read_user_info(dst_addr, object_id)
+	local ok, result
+	local attempts = 3
+
+	for i = 1,attempts do
+		ok, result = pcall(
+			xp.read_user_info, xp, dst_addr, object_id
+		)
+		if ok then
+			return result
+		end
+
+		log.info('read user info addr `%d` obj `%d` err `%s` (%d/%d)',
+			dst_addr, object_id, result, i, attempts)
+	end
+
+	error(result)
+end
+
 local function xci_metric_callback(self)
 	-- xtender
 	self.gauge.xt_ubat_min:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3090)
+			xci_read_user_info(101, 3090)
 		))
 	self.gauge.xt_uin:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3113)
+			xci_read_user_info(101, 3113)
 		))
 	self.gauge.xt_iin:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3116)
+			xci_read_user_info(101, 3116)
 		))
 	self.gauge.xt_pout:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3098)
+			xci_read_user_info(101, 3098)
 		))
 	self.gauge.xt_pout_plus:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3097)
+			xci_read_user_info(101, 3097)
 		))
 	self.gauge.xt_fout:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3110)
+			xci_read_user_info(101, 3110)
 		))
 	self.gauge.xt_fin:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3122)
+			xci_read_user_info(101, 3122)
 		))
 	self.gauge.xt_phase:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3010)
+			xci_read_user_info(101, 3010)
 		))
 	self.gauge.xt_state:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3049)
+			xci_read_user_info(101, 3049)
 		))
 	self.gauge.xt_mode:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3028)
+			xci_read_user_info(101, 3028)
 		))
 	self.gauge.xt_transfert:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3020)
+			xci_read_user_info(101, 3020)
 		))
 	self.gauge.xt_rel_out:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3030)
+			xci_read_user_info(101, 3030)
 		))
 	self.gauge.xt_rel_gnd:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3074)
+			xci_read_user_info(101, 3074)
 		))
 	self.gauge.xt_rel_neutral:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3075)
+			xci_read_user_info(101, 3075)
 		))
 	self.gauge.xt_rme:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3086)
+			xci_read_user_info(101, 3086)
 		))
 	self.gauge.xt_aux1:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3031)
+			xci_read_user_info(101, 3031)
 		))
 	self.gauge.xt_aux1_mode:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3054)
+			xci_read_user_info(101, 3054)
 		))
 	self.gauge.xt_aux2:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3032)
+			xci_read_user_info(101, 3032)
 		))
 	self.gauge.xt_aux2_mode:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 3055)
+			xci_read_user_info(101, 3055)
 		))
 	self.gauge.xt_ubat:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3092)
+			xci_read_user_info(101, 3092)
 		))
 	self.gauge.xt_ibat:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3095)
+			xci_read_user_info(101, 3095)
 		))
 	self.gauge.xt_pin_a:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3119)
+			xci_read_user_info(101, 3119)
 		))
 	self.gauge.xt_pout_a:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3101)
+			xci_read_user_info(101, 3101)
 		))
 	self.gauge.xt_dev1_plus:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(101, 3103)
+			xci_read_user_info(101, 3103)
 		))
 
 	-- variotrack
 	self.gauge.vt_psom:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(301, 11043)
+			xci_read_user_info(301, 11043)
 		))
 	self.gauge.vt_state:set(
 		xcic.unpack_le16(
-			xp:read_user_info(301, 11069)
+			xci_read_user_info(301, 11069)
 		))
 	self.gauge.vt_mode:set(
 		xcic.unpack_le16(
-			xp:read_user_info(301, 11016)
+			xci_read_user_info(301, 11016)
 		))
 	self.gauge.vt_dev1:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(301, 11045)
+			xci_read_user_info(301, 11045)
 		))
 	self.gauge.vt_upvm:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(301, 11041)
+			xci_read_user_info(301, 11041)
 		))
 	self.gauge.vt_ibam:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(301, 11040)
+			xci_read_user_info(301, 11040)
 		))
 	self.gauge.vt_ubam:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(301, 11039)
+			xci_read_user_info(301, 11039)
 		))
 	self.gauge.vt_phas:set(
 		xcic.unpack_le16(
-			xp:read_user_info(301, 11038)
+			xci_read_user_info(301, 11038)
 		))
 	self.gauge.vt_rme:set(
 		xcic.unpack_le16(
-			xp:read_user_info(301, 11082)
+			xci_read_user_info(301, 11082)
 		))
 	self.gauge.vt_aux1:set(
 		xcic.unpack_le16(
-			xp:read_user_info(301, 11061)
+			xci_read_user_info(301, 11061)
 		))
 	self.gauge.vt_aux1_mode:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 11063)
+			xci_read_user_info(101, 11063)
 		))
 	self.gauge.vt_aux2:set(
 		xcic.unpack_le16(
-			xp:read_user_info(301, 11062)
+			xci_read_user_info(301, 11062)
 		))
 	self.gauge.vt_aux2_mode:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 11064)
+			xci_read_user_info(101, 11064)
 		))
 
 	self.gauge.vt_aux3:set(
 		xcic.unpack_le16(
-			xp:read_user_info(301, 11077)
+			xci_read_user_info(301, 11077)
 		))
 	self.gauge.vt_aux3_mode:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 11064)
+			xci_read_user_info(101, 11064)
 		))
 	self.gauge.vt_aux4:set(
 		xcic.unpack_le16(
-			xp:read_user_info(301, 11078)
+			xci_read_user_info(301, 11078)
 		))
 	self.gauge.vt_aux4_mode:set(
 		xcic.unpack_le16(
-			xp:read_user_info(101, 11080)
+			xci_read_user_info(101, 11080)
 		))
 
 
 	-- bsp
 	self.gauge.bsp_ubat:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(601, 7030)
+			xci_read_user_info(601, 7030)
 		))
 	self.gauge.bsp_ibat:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(601, 7031)
+			xci_read_user_info(601, 7031)
 		))
 	self.gauge.bsp_soc:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(601, 7032)
+			xci_read_user_info(601, 7032)
 		))
 	self.gauge.bsp_tbat:set(
 		xcic.unpack_le_float(
-			xp:read_user_info(601, 7033)
+			xci_read_user_info(601, 7033)
 		))
 end
 
