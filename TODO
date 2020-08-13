@@ -1,10 +1,10 @@
-1. +
+1. Sugar for coio_call with just open inside tarantool, to get rid of callbacks (+mr upstream).
 2. Writing parameters.
 3. Dynamic memory allocation with tarantool/small cord_slab_cache().
-4. A script for reading messages.
-5. A script for retrieving files.
-6. Possibly reimplement locking with fiber_cond instead of latching.
-7. Timeouts.
+4. A script for reading messages and maintaining message index within the box, and alerting.
+5. A script for retrieving files (and possibly a fuse tarantoolfs that connects to the box and calls lua funcs).
+6. Expose box_latch_lock with timeout to C api (+mr upstream).
+7. Find a way to make coio_wait with multiple fds (timerfd) and use it for timeouts (+mr upstream).
 8. Exclusively flock the serial port file.
 9. Sort out the inability to get xtender software version.
 10. Unhardcode device addresses and support multiple devices.
