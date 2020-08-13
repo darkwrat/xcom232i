@@ -31,6 +31,9 @@ SOFTWARE.
 
 #include <tarantool/module.h>
 
+#include <small/small.h>
+#include <small/static.h>
+
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
@@ -78,7 +81,7 @@ static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf,
 				   size_t count);
 static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf,
 				    size_t count);
-static void xcic_intl_dump_faulty_frame(scom_frame_t *f);
+static void xcic_intl_dump_faulty_response_frame(scom_frame_t *f);
 static uint16_t xcic_intl_calc_checksum(const char *data, uint_fast16_t length);
 
 static ssize_t xcic_intl_open_cb(va_list ap);
@@ -306,7 +309,7 @@ int xcic_intl_read_property(lua_State *L, struct xcic_port *xp, scom_frame_t *f,
 
 	scom_decode_frame_data(f);
 	if (f->last_error != SCOM_ERROR_NO_ERROR) {
-		xcic_intl_dump_faulty_frame(f);
+		xcic_intl_dump_faulty_response_frame(f);
 		xcic_lua_except(
 		    L, "data link data decoding failed with error %d (%s)",
 		    f->last_error, xcic_intl_scom_strerror(f->last_error));
@@ -430,29 +433,29 @@ ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf, size_t count)
 	return count - l;
 }
 
-void xcic_intl_dump_faulty_frame(scom_frame_t *f)
+void xcic_intl_dump_faulty_response_frame(scom_frame_t *f)
 {
 	if (!f->service_flags.is_response)
 		return;
+
+	char *hex = (char *)static_reserve(scom_frame_length(f) * 4 + 1);
+	if (hex) {
+		char *ptr = hex;
+		for (size_t i = 0; i < scom_frame_length(f); i++)
+			ptr += sprintf(ptr, "\\%d", (uint8_t)f->buffer[i]);
+
+		*ptr = '\0';
+	}
 
 	uint16_t cs =
 	    scom_read_le16(&f->buffer[SCOM_FRAME_HEADER_SIZE + f->data_length]);
 	uint16_t real_cs = xcic_intl_calc_checksum(
 	    &f->buffer[SCOM_FRAME_HEADER_SIZE], f->data_length);
 
-	uint8_t *p = (uint8_t *)f->buffer;
-
-	char buf[4096]; // fixme
-	char *bp = buf;
-	for (size_t i = 0; i < scom_frame_length(f); i++) {
-		bp += sprintf(bp, "\\%d", p[i]);
-	}
-	*bp = '\0';
-
-	say_info("xcic: response frame: error %d src %d dst %d len "
-		 "%d dlen %d cs %d real %d data %s",
+	say_info("xcic: faulty response frame "
+		 "error %d src %d dst %d len %d dlen %d cs %d real %d hex %s",
 		 f->service_flags.error, f->src_addr, f->dst_addr,
-		 scom_frame_length(f), f->data_length, cs, real_cs, buf);
+		 scom_frame_length(f), f->data_length, cs, real_cs, hex ?: "-");
 }
 
 uint16_t xcic_intl_calc_checksum(const char *data, uint_fast16_t length)
