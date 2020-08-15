@@ -283,6 +283,8 @@ except:
 int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
 			    struct ibuf *ibuf, scom_property_t *property)
 {
+	uint32_t object_id = property->object_id;
+
 	if (xcic_scom_encode_read_property(L, ibuf, property))
 		goto except;
 
@@ -302,6 +304,9 @@ int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
 	if (xcic_scom_decode_read_property(L, property))
 		goto except;
 
+	if (object_id != property->object_id)
+		xcic_lua_except(L, "mismatch on object_id `%d` != `%d`", property->object_id, object_id);
+
 	return 0;
 
 except:
@@ -312,6 +317,8 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 			    struct ibuf *ibuf, scom_frame_t *frame)
 {
 	ssize_t nb;
+
+	uint32_t dst_addr = frame->dst_addr;
 
 	box_latch_lock(xp->latch);
 
@@ -350,6 +357,10 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 	if (nb != rlen)
 		xcic_lua_except(
 		    L, "error when reading the data from the com port");
+
+	if (dst_addr != frame->src_addr)
+		xcic_lua_except(L, "mismatch on address `%d` != `%d`", dst_addr, frame->dst_addr);
+
 
 	box_latch_unlock(xp->latch);
 
@@ -574,7 +585,7 @@ int xcic_unpack_le16(lua_State *L)
 	const char *data = lua_tolstring(L, 1, &data_len);
 
 	if (data_len != 2)
-		xcic_lua_except(L, "invalid le16 length");
+		xcic_lua_except(L, "invalid le16 length %d", data_len);
 
 	lua_pushinteger(L, scom_read_le16(data));
 
@@ -593,7 +604,7 @@ int xcic_unpack_le_float(lua_State *L)
 	const char *data = lua_tolstring(L, 1, &data_len);
 
 	if (data_len != 4)
-		xcic_lua_except(L, "invalid le float length");
+		xcic_lua_except(L, "invalid le float length %d", data_len);
 
 	lua_pushnumber(L, (lua_Number)scom_read_le_float(data));
 
