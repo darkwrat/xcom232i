@@ -1,6 +1,6 @@
 1. Sugar for coio_call with just open inside tarantool, to get rid of callbacks (+mr upstream).
 2. Writing parameters.
-3. Dynamic memory allocation with tarantool/small cord_slab_cache().
+3. +
 4. A script for reading messages and maintaining message index within the box, and alerting.
 5. A script for retrieving files (and possibly a fuse tarantoolfs that connects to the box and calls lua funcs).
 6. Expose box_latch_lock with timeout to C api (+mr upstream).
