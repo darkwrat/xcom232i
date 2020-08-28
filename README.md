@@ -19,10 +19,10 @@ Use scripts like this:
 # tarantoolctl eval xci scripts/version.lua
 connected to unix/:/var/run/tarantool/xci.control
 ---
-- variotrack: 1.6.30
-  bsp: 1.6.28
+- bsp: 1.6.28
+  xtender: 1.6.30
+  variotrack: 1.6.30
 ...
-
 ```
 
 Use one-liners like this:
