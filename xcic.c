@@ -124,9 +124,6 @@ int xcic_open_port(lua_State *L)
 	if (tcsetattr(xp->fd, TCSANOW, &tty) == -1)
 		xcic_lua_except(L, "tcsetattr: %s", strerror(errno));
 
-	if (tcsetattr(xp->fd, TCSANOW, &tty) == -1)
-		xcic_lua_except(L, "tcsetattr: %s", strerror(errno));
-
 	xp->latch = box_latch_new();
 
 	luaL_getmetatable(L, XCIC_PORT_LUA_UDATA_NAME);
@@ -233,8 +230,6 @@ int xcic_port_read_user_info(lua_State *L)
 		goto except;
 
 	lua_pushlstring(L, property.value_buffer, property.value_length);
-
-	ibuf_destroy(&ibuf);
 
 	return 1;
 
