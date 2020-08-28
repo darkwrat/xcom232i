@@ -1,5 +1,7 @@
 # xcom232i
 
+![XCI Dashboard Preview](https://raw.githubusercontent.com/darkwrat/xcom232i/master/etc/dashboard.png)
+
 Stuff for interfacing with Xcom-232i through RS-232 serial port.
 
 - usermod -a -G dialout tarantool
