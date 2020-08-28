@@ -87,7 +87,6 @@ static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf,
 static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf,
 				    size_t count);
 
-static void xcic_intl_set_tty(struct termios *tty);
 static void xcic_intl_port_close(struct xcic_port *xp);
 
 static ssize_t xcic_intl_open_cb(va_list ap);
@@ -305,7 +304,8 @@ int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
 		goto except;
 
 	if (object_id != property->object_id)
-		xcic_lua_except(L, "mismatch on object_id `%d` != `%d`", property->object_id, object_id);
+		xcic_lua_except(L, "mismatch on object_id `%d` != `%d`",
+				property->object_id, object_id);
 
 	return 0;
 
@@ -339,7 +339,8 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 		xcic_lua_except(
 		    L, "error when reading the header from the com port");
 
-	/* scom_frame_length() is incorrect as `frame->data_length` is still empty */
+	/* scom_frame_length() is incorrect as `frame->data_length` is still
+	 * empty */
 	ssize_t rlen = scom_read_le16(&frame->buffer[10]) + 2;
 
 	if (!ibuf_alloc(ibuf, rlen))
@@ -359,8 +360,8 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 		    L, "error when reading the data from the com port");
 
 	if (dst_addr != frame->src_addr)
-		xcic_lua_except(L, "mismatch on address `%d` != `%d`", dst_addr, frame->dst_addr);
-
+		xcic_lua_except(L, "mismatch on address `%d` != `%d`", dst_addr,
+				frame->dst_addr);
 
 	box_latch_unlock(xp->latch);
 
@@ -726,32 +727,6 @@ ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf, size_t count)
 	}
 
 	return count - l;
-}
-
-void xcic_intl_set_tty(struct termios *tty)
-{
-	(void)cfsetospeed(tty, B38400);
-	(void)cfsetispeed(tty, B38400);
-
-	tty->c_cflag = (tty->c_cflag & ~CSIZE) | CS8; // 8-bit chars
-	// disable IGNBRK for mismatched speed tests; otherwise receive break
-	// as \000 chars
-	tty->c_iflag &= ~IGNBRK; // disable break processing
-	tty->c_lflag = 0;	 // no signaling chars, no echo,
-				 // no canonical processing
-	tty->c_oflag = 0;	 // no remapping, no delays
-
-	tty->c_cc[VMIN] = 0;  // /- unused for O_NONBLOCK
-	tty->c_cc[VTIME] = 0; // /
-
-	tty->c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
-
-	tty->c_cflag |= (CLOCAL | CREAD); // ignore modem controls,
-					  // enable reading
-	tty->c_cflag |= PARENB;		  // enable parity
-	tty->c_cflag &= ~PARODD;	  // even parity
-	tty->c_cflag &= ~CSTOPB;
-	tty->c_cflag &= ~CRTSCTS;
 }
 
 void xcic_intl_port_close(struct xcic_port *xp)
