@@ -71,7 +71,6 @@ struct xcic_port {
 static int xcic_intl_read_property(lua_State *L, struct xcic_port *xp,
 				   scom_frame_t *f, scom_property_t *p);
 
-static void xcic_intl_set_tty(struct termios *tty);
 static char *xcic_intl_scom_strerror(scom_error_t error);
 static void xcic_intl_port_close(struct xcic_port *xp);
 
@@ -111,11 +110,13 @@ int xcic_open_port(lua_State *L)
 	if (xp->fd == -1)
 		xcic_lua_except(L, "open: %s", strerror(errno));
 
-	struct termios tty;
-	if (tcgetattr(xp->fd, &tty) == -1)
-		xcic_lua_except(L, "tcgetattr: %s", strerror(errno));
+	struct termios tty = {.c_cflag = CS8 | CLOCAL | CREAD | PARENB};
 
-	xcic_intl_set_tty(&tty);
+	(void)cfsetospeed(&tty, B38400);
+	(void)cfsetispeed(&tty, B38400);
+
+	if (tcsetattr(xp->fd, TCSANOW, &tty) == -1)
+		xcic_lua_except(L, "tcsetattr: %s", strerror(errno));
 
 	if (tcsetattr(xp->fd, TCSANOW, &tty) == -1)
 		xcic_lua_except(L, "tcsetattr: %s", strerror(errno));
@@ -131,32 +132,6 @@ except:
 	xcic_intl_port_close(xp);
 
 	return lua_error(L);
-}
-
-void xcic_intl_set_tty(struct termios *tty)
-{
-	(void)cfsetospeed(tty, B38400);
-	(void)cfsetispeed(tty, B38400);
-
-	tty->c_cflag = (tty->c_cflag & ~CSIZE) | CS8; // 8-bit chars
-	// disable IGNBRK for mismatched speed tests; otherwise receive break
-	// as \000 chars
-	tty->c_iflag &= ~IGNBRK; // disable break processing
-	tty->c_lflag = 0;	 // no signaling chars, no echo,
-				 // no canonical processing
-	tty->c_oflag = 0;	 // no remapping, no delays
-
-	tty->c_cc[VMIN] = 0;  // /- unused for O_NONBLOCK
-	tty->c_cc[VTIME] = 0; // /
-
-	tty->c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
-
-	tty->c_cflag |= (CLOCAL | CREAD); // ignore modem controls,
-					  // enable reading
-	tty->c_cflag |= PARENB;		  // enable parity
-	tty->c_cflag &= ~PARODD;	  // even parity
-	tty->c_cflag &= ~CSTOPB;
-	tty->c_cflag &= ~CRTSCTS;
 }
 
 int xcic_port_usable(lua_State *L)
