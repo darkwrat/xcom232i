@@ -74,8 +74,8 @@ static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
 				   scom_property_t *property);
 static int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
 				    struct ibuf *ibuf,
-				    scom_property_t *property,
-				    const char *data);
+				    scom_property_t *property, const char *data,
+				    size_t data_len);
 static int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 				   struct ibuf *ibuf, scom_frame_t *frame);
 
@@ -83,7 +83,7 @@ static int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf,
 					  scom_property_t *property);
 static int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
 					   scom_property_t *property,
-					   const char *data);
+					   const char *data, size_t data_len);
 static int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf,
 					  scom_frame_t *frame);
 static int xcic_scom_decode_frame_header(lua_State *L, scom_frame_t *frame);
@@ -349,12 +349,10 @@ int xcic_port_write_parameter_property(lua_State *L)
 	size_t data_len;
 	const char *data = lua_tolstring(L, 5, &data_len);
 
-	property.value_length = data_len;
-
 	struct ibuf ibuf __attribute__((cleanup(ibuf_destroy))) = {0};
 	ibuf_create(&ibuf, cord_slab_cache(), 32);
 
-	if (xcic_scom_write_property(L, xp, &ibuf, &property, data))
+	if (xcic_scom_write_property(L, xp, &ibuf, &property, data, data_len))
 		goto except;
 
 	return 0;
@@ -365,11 +363,11 @@ except:
 
 int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
 			     struct ibuf *ibuf, scom_property_t *property,
-			     const char *data)
+			     const char *data, size_t data_len)
 {
 	uint32_t object_id = property->object_id;
 
-	if (xcic_scom_encode_write_property(L, ibuf, property, data))
+	if (xcic_scom_encode_write_property(L, ibuf, property, data, data_len))
 		goto except;
 
 	if (xcic_scom_encode_request_frame(L, ibuf, property->frame))
@@ -515,15 +513,19 @@ except:
 }
 
 int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
-				    scom_property_t *property, const char *data)
+				    scom_property_t *property, const char *data,
+				    size_t data_len)
 {
 	size_t offset = SCOM_FRAME_HEADER_SIZE + 2 + 8;
 
-	if (!ibuf_alloc(ibuf, offset + property->value_length))
+	if (!ibuf_alloc(ibuf, offset + data_len))
 		xcic_lua_except(L, "alloc failed");
+
+	memcpy(ibuf->rpos + offset, data, data_len);
 
 	property->frame->buffer = ibuf->rpos;
 	property->frame->buffer_size = ibuf_used(ibuf);
+	property->value_length = data_len;
 
 	scom_encode_write_property(property);
 
@@ -533,8 +535,6 @@ int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
 		    "write property frame encoding failed with error %d (%s)",
 		    property->frame->last_error,
 		    xcic_scom_strerror(property->frame->last_error));
-
-	memcpy(ibuf->rpos + offset, data, property->value_length);
 
 	return 0;
 
