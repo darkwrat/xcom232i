@@ -59,6 +59,7 @@ static int xcic_port_to_string(lua_State *L);
 static int xcic_port_gc(lua_State *L);
 static int xcic_port_read_user_info(lua_State *L);
 static int xcic_port_read_parameter_property(lua_State *L);
+static int xcic_port_write_parameter_property(lua_State *L);
 
 /** Xcom-232i serial port handle. */
 struct xcic_port {
@@ -71,17 +72,26 @@ struct xcic_port {
 static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
 				   struct ibuf *ibuf,
 				   scom_property_t *property);
+static int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
+				    struct ibuf *ibuf,
+				    scom_property_t *property,
+				    const char *data);
 static int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 				   struct ibuf *ibuf, scom_frame_t *frame);
 
 static int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf,
 					  scom_property_t *property);
+static int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
+					   scom_property_t *property,
+					   const char *data);
 static int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf,
 					  scom_frame_t *frame);
 static int xcic_scom_decode_frame_header(lua_State *L, scom_frame_t *frame);
 static int xcic_scom_decode_frame_data(lua_State *L, scom_frame_t *frame);
 static int xcic_scom_decode_read_property(lua_State *L,
 					  scom_property_t *property);
+static int xcic_scom_decode_write_property(lua_State *L,
+					   scom_property_t *property);
 
 static uint16_t xcic_scom_calc_checksum(const char *data, uint_fast16_t length);
 static void xcic_scom_dump_faulty_frame(struct ibuf *ibuf, scom_frame_t *frame);
@@ -313,6 +323,81 @@ except:
 	return -1; // caller must invoke `lua_error
 }
 
+int xcic_port_write_parameter_property(lua_State *L)
+{
+	if (lua_gettop(L) < 4)
+		return luaL_error(
+		    L, "Usage: xp:write_parameter_property(dst_addr, "
+		       "object_id, property_id, data)");
+
+	struct xcic_port *xp =
+	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+
+	scom_frame_t frame;
+	scom_initialize_frame(&frame, NULL, 0);
+
+	frame.src_addr = 1;
+	frame.dst_addr = lua_tointeger(L, 2);
+
+	scom_property_t property;
+	scom_initialize_property(&property, &frame);
+
+	property.object_type = SCOM_PARAMETER_OBJECT_TYPE;
+	property.object_id = lua_tointeger(L, 3);
+	property.property_id = lua_tointeger(L, 4);
+
+	size_t data_len;
+	const char *data = lua_tolstring(L, 5, &data_len);
+
+	property.value_length = data_len;
+
+	struct ibuf ibuf __attribute__((cleanup(ibuf_destroy))) = {0};
+	ibuf_create(&ibuf, cord_slab_cache(), 32);
+
+	if (xcic_scom_write_property(L, xp, &ibuf, &property, data))
+		goto except;
+
+	return 0;
+
+except:
+	return lua_error(L);
+}
+
+int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
+			     struct ibuf *ibuf, scom_property_t *property,
+			     const char *data)
+{
+	uint32_t object_id = property->object_id;
+
+	if (xcic_scom_encode_write_property(L, ibuf, property, data))
+		goto except;
+
+	if (xcic_scom_encode_request_frame(L, ibuf, property->frame))
+		goto except;
+
+	if (xcic_scom_port_exchange(L, xp, ibuf, property->frame))
+		goto except;
+
+	if (xcic_scom_decode_frame_data(L, property->frame)) {
+		xcic_scom_dump_faulty_frame(ibuf, property->frame);
+		goto except;
+	}
+
+	scom_initialize_property(property, property->frame);
+
+	if (xcic_scom_decode_write_property(L, property))
+		goto except;
+
+	if (object_id != property->object_id)
+		xcic_lua_except(L, "mismatch on object_id `%d` != `%d`",
+				property->object_id, object_id);
+
+	return 0;
+
+except:
+	return -1; // caller must invoke `lua_error
+}
+
 int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 			    struct ibuf *ibuf, scom_frame_t *frame)
 {
@@ -429,6 +514,34 @@ except:
 	return -1; // caller must invoke `lua_error
 }
 
+int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
+				    scom_property_t *property, const char *data)
+{
+	size_t offset = SCOM_FRAME_HEADER_SIZE + 2 + 8;
+
+	if (!ibuf_alloc(ibuf, offset + property->value_length))
+		xcic_lua_except(L, "alloc failed");
+
+	property->frame->buffer = ibuf->rpos;
+	property->frame->buffer_size = ibuf_used(ibuf);
+
+	scom_encode_write_property(property);
+
+	if (property->frame->last_error != SCOM_ERROR_NO_ERROR)
+		xcic_lua_except(
+		    L,
+		    "write property frame encoding failed with error %d (%s)",
+		    property->frame->last_error,
+		    xcic_scom_strerror(property->frame->last_error));
+
+	memcpy(ibuf->rpos + offset, data, property->value_length);
+
+	return 0;
+
+except:
+	return -1; // caller must invoke `lua_error
+}
+
 int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf,
 				   scom_frame_t *frame)
 {
@@ -488,6 +601,22 @@ int xcic_scom_decode_read_property(lua_State *L, scom_property_t *property)
 	if (property->frame->last_error != SCOM_ERROR_NO_ERROR)
 		xcic_lua_except(
 		    L, "read property decoding failed with error %d (%s)",
+		    property->frame->last_error,
+		    xcic_scom_strerror(property->frame->last_error));
+
+	return 0;
+
+except:
+	return -1; // caller must invoke `lua_error
+}
+
+int xcic_scom_decode_write_property(lua_State *L, scom_property_t *property)
+{
+	scom_decode_write_property(property);
+
+	if (property->frame->last_error != SCOM_ERROR_NO_ERROR)
+		xcic_lua_except(
+		    L, "write property decoding failed with error %d (%s)",
 		    property->frame->last_error,
 		    xcic_scom_strerror(property->frame->last_error));
 
@@ -841,6 +970,7 @@ static const struct luaL_Reg M[] = {
     {"usable", xcic_port_usable},
     {"read_user_info", xcic_port_read_user_info},
     {"read_parameter_property", xcic_port_read_parameter_property},
+    {"write_parameter_property", xcic_port_write_parameter_property},
     {"__tostring", xcic_port_to_string},
     {"__gc", xcic_port_gc},
     {NULL, NULL}};
