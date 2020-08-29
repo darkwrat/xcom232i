@@ -6,5 +6,5 @@ return {
 	100 == xcic.unpack_le32(xcic.pack_le32(100)),
 	true == xcic.unpack_bool(xcic.pack_bool(true)),
 	false == xcic.unpack_bool(xcic.pack_bool(false)),
-	"\x01" == xcic.pack_signal(),
+	'\x01\0\0\0' == xcic.pack_signal(),
 }

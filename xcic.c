@@ -862,9 +862,9 @@ except:
 
 int xcic_pack_signal(lua_State *L)
 {
-	uint8_t val = 1;
+	uint32_t val = 1;
 
-	lua_pushlstring(L, (const char *)&val, 1);
+	lua_pushlstring(L, (const char *)&val, 4);
 
 	return 1;
 }
