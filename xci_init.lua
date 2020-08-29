@@ -10,6 +10,7 @@ xcic = require('xcic')
 box.cfg{
 	listen = 3301,
 	custom_proc_title = 'xci',
+	feedback_enabled = false,
 	memtx_memory = 32 * 1024 * 1024,
 	work_dir = '/xci',
 	wal_dir = '/xci/xlogs',
