@@ -1,8 +1,7 @@
 1. Sugar for coio_call with just open inside tarantool, to get rid of callbacks (+mr upstream).
-2. A script for reading messages and maintaining message index within the box, and alerting.
-3. A script for retrieving files (and possibly a fuse tarantoolfs that connects to the box and calls lua funcs).
-4. Expose box_latch_lock with timeout to C api (+mr upstream).
-5. Find a way to make coio_wait with multiple fds (timerfd) and use it for timeouts (+mr upstream).
-6. Exclusively flock the serial port file.
-7. Unhardcode device addresses and support multiple devices.
-8. Enumerate object IDs somewhere with meaningful descriptions.
+2. A script for retrieving files (and possibly a fuse tarantoolfs that connects to the box and calls lua funcs).
+3. Expose box_latch_lock with timeout to C api (+mr upstream).
+4. Find a way to make coio_wait with multiple fds (timerfd) and use it for timeouts (+mr upstream).
+5. Exclusively flock the serial port file.
+6. Unhardcode device addresses and support multiple devices.
+7. Enumerate object IDs somewhere with meaningful descriptions.

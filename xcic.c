@@ -60,6 +60,7 @@ static int xcic_port_gc(lua_State *L);
 static int xcic_port_read_user_info(lua_State *L);
 static int xcic_port_read_parameter_property(lua_State *L);
 static int xcic_port_write_parameter_property(lua_State *L);
+static int xcic_port_read_message(lua_State *L);
 
 /** Xcom-232i serial port handle. */
 struct xcic_port {
@@ -394,6 +395,50 @@ int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
 
 except:
 	return -1; // caller must invoke `lua_error
+}
+
+int xcic_port_read_message(lua_State *L)
+{
+	if (lua_gettop(L) < 3)
+		return luaL_error(L, "Usage: xp:read_message(dst_addr, "
+				     "object_id)");
+
+	struct xcic_port *xp =
+	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+
+	scom_frame_t frame;
+	scom_initialize_frame(&frame, NULL, 0);
+
+	frame.src_addr = 1;
+	frame.dst_addr = lua_tointeger(L, 2);
+
+	scom_property_t property;
+	scom_initialize_property(&property, &frame);
+
+	property.object_type = 3; // message
+	property.object_id = lua_tointeger(L, 3);
+	property.property_id = 0;
+
+	struct ibuf ibuf __attribute__((cleanup(ibuf_destroy))) = {0};
+	ibuf_create(&ibuf, cord_slab_cache(), 32);
+
+	if (xcic_scom_read_property(L, xp, &ibuf, &property))
+		goto except;
+
+	if (property.value_length != 4 + 2 + 4 + 4 + 4)
+		xcic_lua_except(L, "invalid message data length %d",
+			    property.value_length);
+
+	lua_pushinteger(L, scom_read_le32(&property.value_buffer[0]));
+	lua_pushinteger(L, scom_read_le16(&property.value_buffer[4]));
+	lua_pushinteger(L, scom_read_le32(&property.value_buffer[6]));
+	lua_pushinteger(L, scom_read_le32(&property.value_buffer[10]));
+	lua_pushinteger(L, scom_read_le32(&property.value_buffer[14]));
+
+	return 5;
+
+except:
+	return lua_error(L);
 }
 
 int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
@@ -971,6 +1016,7 @@ static const struct luaL_Reg M[] = {
     {"read_user_info", xcic_port_read_user_info},
     {"read_parameter_property", xcic_port_read_parameter_property},
     {"write_parameter_property", xcic_port_write_parameter_property},
+    {"read_message", xcic_port_read_message},
     {"__tostring", xcic_port_to_string},
     {"__gc", xcic_port_gc},
     {NULL, NULL}};
