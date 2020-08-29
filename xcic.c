@@ -318,6 +318,7 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 	box_latch_lock(xp->latch);
 
 	nb = xcic_intl_port_write(xp, frame->buffer, scom_frame_length(frame));
+
 	if (nb != (ssize_t)scom_frame_length(frame))
 		xcic_lua_except(L, "error when writing to the com port");
 
@@ -562,7 +563,7 @@ int xcic_unpack_le32(lua_State *L)
 	const char *data = lua_tolstring(L, 1, &data_len);
 
 	if (data_len != 4)
-		xcic_lua_except(L, "invalid le32 length");
+		xcic_lua_except(L, "invalid le32 length %d", data_len);
 
 	lua_pushinteger(L, scom_read_le32(data));
 
@@ -621,13 +622,13 @@ int xcic_unpack_software_version(lua_State *L)
 	const char *msb_data = lua_tolstring(L, 1, &msb_data_len);
 
 	if (msb_data_len != 4)
-		xcic_lua_except(L, "invalid msb data length");
+		xcic_lua_except(L, "invalid msb data length %d", msb_data_len);
 
 	size_t lsb_data_len;
 	const char *lsb_data = lua_tolstring(L, 2, &lsb_data_len);
 
 	if (lsb_data_len != 4)
-		xcic_lua_except(L, "invalid lsb data length");
+		xcic_lua_except(L, "invalid lsb data length %d", lsb_data_len);
 
 	uint16_t msb = (uint16_t)scom_read_le_float(msb_data);
 	uint16_t lsb = (uint16_t)scom_read_le_float(lsb_data);
@@ -650,7 +651,7 @@ int xcic_unpack_bool(lua_State *L)
 	const char *data = lua_tolstring(L, 1, &data_len);
 
 	if (data_len != 1)
-		xcic_lua_except(L, "invalid bool length");
+		xcic_lua_except(L, "invalid bool length %d", data_len);
 
 	lua_pushboolean(L, *data);
 
