@@ -321,7 +321,7 @@ int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 int xcic_port_write_parameter_property(lua_State *L)
@@ -394,7 +394,7 @@ int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 int xcic_port_read_message(lua_State *L)
@@ -457,10 +457,8 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 
 	ibuf_reset(ibuf);
 
-	if (!ibuf_alloc(ibuf, SCOM_FRAME_HEADER_SIZE)) {
-		xcic_intl_port_close(xp);
+	if (!ibuf_alloc(ibuf, SCOM_FRAME_HEADER_SIZE))
 		xcic_lua_except(L, "alloc failed");
-	}
 
 	scom_initialize_frame(frame, ibuf->rpos, ibuf_used(ibuf));
 
@@ -474,10 +472,8 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 	 * empty */
 	ssize_t rlen = scom_read_le16(&frame->buffer[10]) + 2;
 
-	if (!ibuf_alloc(ibuf, rlen)) {
-		xcic_intl_port_close(xp);
+	if (!ibuf_alloc(ibuf, rlen))
 		xcic_lua_except(L, "alloc failed");
-	}
 
 	frame->buffer = ibuf->rpos;
 	frame->buffer_size = ibuf_used(ibuf);
@@ -501,6 +497,7 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 	return 0;
 
 except:
+	xcic_intl_port_close(xp);
 	box_latch_unlock(xp->latch);
 
 	return -1; // caller must invoke `lua_error`
@@ -558,7 +555,7 @@ int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf,
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
@@ -588,7 +585,7 @@ int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf,
@@ -610,7 +607,7 @@ int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf,
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 int xcic_scom_decode_frame_header(lua_State *L, scom_frame_t *frame)
@@ -625,7 +622,7 @@ int xcic_scom_decode_frame_header(lua_State *L, scom_frame_t *frame)
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 int xcic_scom_decode_frame_data(lua_State *L, scom_frame_t *frame)
@@ -640,7 +637,7 @@ int xcic_scom_decode_frame_data(lua_State *L, scom_frame_t *frame)
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 int xcic_scom_decode_read_property(lua_State *L, scom_property_t *property)
@@ -656,7 +653,7 @@ int xcic_scom_decode_read_property(lua_State *L, scom_property_t *property)
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 int xcic_scom_decode_write_property(lua_State *L, scom_property_t *property)
@@ -672,7 +669,7 @@ int xcic_scom_decode_write_property(lua_State *L, scom_property_t *property)
 	return 0;
 
 except:
-	return -1; // caller must invoke `lua_error
+	return -1; // caller must invoke `lua_error`
 }
 
 char *xcic_scom_strerror(scom_error_t error)
