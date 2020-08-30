@@ -1,11 +1,10 @@
 #!/usr/bin/env tarantool
 
 fiber = require('fiber')
+log = require('log')
 
 package.path = package.path .. ';/usr/share/tarantool/.rocks/share/tarantool/?.lua'
 package.cpath = package.cpath .. ';/usr/share/tarantool/?.so'
-
-xcic = require('xcic')
 
 box.cfg{
 	listen = 3301,
@@ -34,6 +33,19 @@ box.once('xci_schema', function()
 	})
 end)
 
-xp = xcic.open_port('/dev/ttyS0')
+local xcic = require('xcic')
+local xpmt = {
+	__call = function(self)
+		local port = rawget(self, 'port')
+		if port == nil or not port:usable() then
+			port = xcic.open_port('/dev/ttyS0')
+			log.info('xp: reopen (%s)', port)
+			self.port = port
+		end
+		return port
+	end
+}
+
+xp = setmetatable(xcic, xpmt)
 
 require('xci').start()

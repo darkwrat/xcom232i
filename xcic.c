@@ -457,8 +457,10 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 
 	ibuf_reset(ibuf);
 
-	if (!ibuf_alloc(ibuf, SCOM_FRAME_HEADER_SIZE))
+	if (!ibuf_alloc(ibuf, SCOM_FRAME_HEADER_SIZE)) {
+		xcic_intl_port_close(xp);
 		xcic_lua_except(L, "alloc failed");
+	}
 
 	scom_initialize_frame(frame, ibuf->rpos, ibuf_used(ibuf));
 
@@ -472,8 +474,10 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 	 * empty */
 	ssize_t rlen = scom_read_le16(&frame->buffer[10]) + 2;
 
-	if (!ibuf_alloc(ibuf, rlen))
+	if (!ibuf_alloc(ibuf, rlen)) {
+		xcic_intl_port_close(xp);
 		xcic_lua_except(L, "alloc failed");
+	}
 
 	frame->buffer = ibuf->rpos;
 	frame->buffer_size = ibuf_used(ibuf);

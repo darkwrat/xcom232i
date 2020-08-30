@@ -191,11 +191,11 @@ local vs = {
 }
 
 
-local n, t, a, ts, v = xp:read_message(501, 0)
+local n, t, a, ts, v = xp():read_message(501, 0)
 s:put {ts, a, t, v}
 
 for i=1,n-1 do
-	n, t, a, ts, v = xp:read_message(501, i)
+	n, t, a, ts, v = xp():read_message(501, i)
 	s:put {ts, a, t, v}
 end
 

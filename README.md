@@ -2,18 +2,13 @@
 
 ![XCI Dashboard Preview](https://raw.githubusercontent.com/darkwrat/xcom232i/master/etc/dashboard.png)
 
-Stuff for interfacing with Xcom-232i through RS-232 serial port.
+Stuff for interfacing with Studer Innotec Xcom-232i through RS-232 serial port.
 
 - usermod -a -G dialout tarantool
 - tarantoolctl rocks install http
 - tarantoolctl rocks install metrics
 
-Export xp and xcic globally in the instance file:
-
-```
-xcic = require('xcic')
-xp = xcic.open_port('/dev/ttyS0')
-```
+Create a symlink to xci_init.lua from /etc/tarantool/instances.available/xci.lua
 
 Use scripts like this:
 
@@ -30,7 +25,7 @@ connected to unix/:/var/run/tarantool/xci.control
 Use one-liners like this:
 
 ```
-# echo 'xcic.unpack_le_float(xp:read_user_info(101, 3000))' |tarantoolctl eval xci
+# echo 'xp.unpack_le_float(xp():read_user_info(101, 3000))' |tarantoolctl eval xci
 connected to unix/:/var/run/tarantool/xci.control
 ---
 - 50.1875
