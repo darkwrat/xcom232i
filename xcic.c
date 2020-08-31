@@ -70,47 +70,39 @@ struct xcic_port {
 	box_latch_t *latch;
 };
 
-static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
-				   struct ibuf *ibuf,
+static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
 				   scom_property_t *property);
-static int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
-				    struct ibuf *ibuf,
-				    scom_property_t *property, const char *data,
-				    size_t data_len);
-static int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
-				   struct ibuf *ibuf, scom_frame_t *frame);
+static int xcic_scom_write_property(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
+				    scom_property_t *property, const char *data, size_t data_len);
+static int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
+				   scom_frame_t *frame);
 
 static int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf,
 					  scom_property_t *property);
 static int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
-					   scom_property_t *property,
-					   const char *data, size_t data_len);
-static int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf,
-					  scom_frame_t *frame);
+					   scom_property_t *property, const char *data,
+					   size_t data_len);
+static int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf, scom_frame_t *frame);
 static int xcic_scom_decode_frame_header(lua_State *L, scom_frame_t *frame);
 static int xcic_scom_decode_frame_data(lua_State *L, scom_frame_t *frame);
-static int xcic_scom_decode_read_property(lua_State *L,
-					  scom_property_t *property);
-static int xcic_scom_decode_write_property(lua_State *L,
-					   scom_property_t *property);
+static int xcic_scom_decode_read_property(lua_State *L, scom_property_t *property);
+static int xcic_scom_decode_write_property(lua_State *L, scom_property_t *property);
 
 static uint16_t xcic_scom_calc_checksum(const char *data, uint_fast16_t length);
 static void xcic_scom_dump_faulty_frame(struct ibuf *ibuf, scom_frame_t *frame);
 static char *xcic_scom_strerror(scom_error_t error);
 
-static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf,
-				   size_t count);
-static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf,
-				    size_t count);
+static ssize_t xcic_intl_port_read(struct xcic_port *xp, void *buf, size_t count);
+static ssize_t xcic_intl_port_write(struct xcic_port *xp, void *buf, size_t count);
 
 static void xcic_intl_port_close(struct xcic_port *xp);
 
 static ssize_t xcic_intl_open_cb(va_list ap);
 
-#define xcic_lua_except_to(label, L, ...)                                      \
-	({                                                                     \
-		(void)lua_pushfstring(L, __VA_ARGS__);                         \
-		goto label;                                                    \
+#define xcic_lua_except_to(label, L, ...)                                                          \
+	({                                                                                         \
+		(void)lua_pushfstring(L, __VA_ARGS__);                                             \
+		goto label;                                                                        \
 	})
 
 #define xcic_lua_except(L, ...) xcic_lua_except_to(except, L, __VA_ARGS__)
@@ -120,15 +112,13 @@ int xcic_open_port(lua_State *L)
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xcic.open_port(pathname)");
 
-	struct xcic_port *xp =
-	    (struct xcic_port *)lua_newuserdata(L, sizeof(*xp));
+	struct xcic_port *xp = (struct xcic_port *)lua_newuserdata(L, sizeof(*xp));
 
 	memset(xp, 0, sizeof(*xp));
 
 	const char *pathname = lua_tostring(L, 1);
 
-	xp->fd = coio_call(xcic_intl_open_cb, pathname,
-			   O_RDWR | O_NOCTTY | O_SYNC | O_NONBLOCK);
+	xp->fd = coio_call(xcic_intl_open_cb, pathname, O_RDWR | O_NOCTTY | O_SYNC | O_NONBLOCK);
 	if (xp->fd == -1)
 		xcic_lua_except(L, "open: %s", strerror(errno));
 
@@ -171,8 +161,7 @@ int xcic_port_close(lua_State *L)
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xp:close()");
 
-	struct xcic_port *xp =
-	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
 
 	xcic_intl_port_close(xp);
 
@@ -184,8 +173,7 @@ int xcic_port_usable(lua_State *L)
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xp:usable()");
 
-	struct xcic_port *xp =
-	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
 
 	lua_pushboolean(L, xp->fd != -1);
 
@@ -197,8 +185,7 @@ int xcic_port_to_string(lua_State *L)
 	if (lua_gettop(L) < 1)
 		return luaL_error(L, "Usage: xp:tostring()");
 
-	struct xcic_port *xp =
-	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
 
 	lua_pushfstring(L, "xcic_port: %p (%d)", xp, xp->fd);
 
@@ -207,8 +194,7 @@ int xcic_port_to_string(lua_State *L)
 
 int xcic_port_gc(lua_State *L)
 {
-	struct xcic_port *xp =
-	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
 
 	xcic_intl_port_close(xp);
 
@@ -220,11 +206,9 @@ int xcic_port_gc(lua_State *L)
 int xcic_port_read_user_info(lua_State *L)
 {
 	if (lua_gettop(L) < 3)
-		return luaL_error(
-		    L, "Usage: xp:read_user_info(dst_addr, object_id)");
+		return luaL_error(L, "Usage: xp:read_user_info(dst_addr, object_id)");
 
-	struct xcic_port *xp =
-	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
 
 	scom_frame_t frame;
 	scom_initialize_frame(&frame, NULL, 0);
@@ -256,12 +240,10 @@ except:
 int xcic_port_read_parameter_property(lua_State *L)
 {
 	if (lua_gettop(L) < 3)
-		return luaL_error(L,
-				  "Usage: xp:read_parameter_property(dst_addr, "
-				  "object_id, property_id)");
+		return luaL_error(L, "Usage: xp:read_parameter_property(dst_addr, "
+				     "object_id, property_id)");
 
-	struct xcic_port *xp =
-	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
 
 	scom_frame_t frame;
 	scom_initialize_frame(&frame, NULL, 0);
@@ -290,8 +272,8 @@ except:
 	return lua_error(L);
 }
 
-int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
-			    struct ibuf *ibuf, scom_property_t *property)
+int xcic_scom_read_property(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
+			    scom_property_t *property)
 {
 	uint32_t object_id = property->object_id;
 
@@ -315,8 +297,8 @@ int xcic_scom_read_property(lua_State *L, struct xcic_port *xp,
 		goto except;
 
 	if (object_id != property->object_id)
-		xcic_lua_except(L, "mismatch on object_id `%d` != `%d`",
-				property->object_id, object_id);
+		xcic_lua_except(L, "mismatch on object_id `%d` != `%d`", property->object_id,
+				object_id);
 
 	return 0;
 
@@ -327,12 +309,10 @@ except:
 int xcic_port_write_parameter_property(lua_State *L)
 {
 	if (lua_gettop(L) < 4)
-		return luaL_error(
-		    L, "Usage: xp:write_parameter_property(dst_addr, "
-		       "object_id, property_id, data)");
+		return luaL_error(L, "Usage: xp:write_parameter_property(dst_addr, "
+				     "object_id, property_id, data)");
 
-	struct xcic_port *xp =
-	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
 
 	scom_frame_t frame;
 	scom_initialize_frame(&frame, NULL, 0);
@@ -362,9 +342,8 @@ except:
 	return lua_error(L);
 }
 
-int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
-			     struct ibuf *ibuf, scom_property_t *property,
-			     const char *data, size_t data_len)
+int xcic_scom_write_property(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
+			     scom_property_t *property, const char *data, size_t data_len)
 {
 	uint32_t object_id = property->object_id;
 
@@ -388,8 +367,8 @@ int xcic_scom_write_property(lua_State *L, struct xcic_port *xp,
 		goto except;
 
 	if (object_id != property->object_id)
-		xcic_lua_except(L, "mismatch on object_id `%d` != `%d`",
-				property->object_id, object_id);
+		xcic_lua_except(L, "mismatch on object_id `%d` != `%d`", property->object_id,
+				object_id);
 
 	return 0;
 
@@ -400,11 +379,9 @@ except:
 int xcic_port_read_message(lua_State *L)
 {
 	if (lua_gettop(L) < 3)
-		return luaL_error(L, "Usage: xp:read_message(dst_addr, "
-				     "object_id)");
+		return luaL_error(L, "Usage: xp:read_message(dst_addr, object_id)");
 
-	struct xcic_port *xp =
-	    (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
 
 	scom_frame_t frame;
 	scom_initialize_frame(&frame, NULL, 0);
@@ -426,8 +403,7 @@ int xcic_port_read_message(lua_State *L)
 		goto except;
 
 	if (property.value_length != 4 + 2 + 4 + 4 + 4)
-		xcic_lua_except(L, "invalid message data length %d",
-			    property.value_length);
+		xcic_lua_except(L, "invalid message data length %d", property.value_length);
 
 	lua_pushinteger(L, scom_read_le32(&property.value_buffer[0]));
 	lua_pushinteger(L, scom_read_le16(&property.value_buffer[4]));
@@ -441,8 +417,8 @@ except:
 	return lua_error(L);
 }
 
-int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
-			    struct ibuf *ibuf, scom_frame_t *frame)
+int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
+			    scom_frame_t *frame)
 {
 	ssize_t nb;
 
@@ -465,8 +441,7 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 	nb = xcic_intl_port_read(xp, frame->buffer, SCOM_FRAME_HEADER_SIZE);
 
 	if (nb != SCOM_FRAME_HEADER_SIZE)
-		xcic_lua_except(
-		    L, "error when reading the header from the com port");
+		xcic_lua_except(L, "error when reading the header from the com port");
 
 	/* scom_frame_length() is incorrect as `frame->data_length` is still
 	 * empty */
@@ -481,16 +456,13 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp,
 	if (xcic_scom_decode_frame_header(L, frame))
 		goto except;
 
-	nb = xcic_intl_port_read(xp, &frame->buffer[SCOM_FRAME_HEADER_SIZE],
-				 rlen);
+	nb = xcic_intl_port_read(xp, &frame->buffer[SCOM_FRAME_HEADER_SIZE], rlen);
 
 	if (nb != rlen)
-		xcic_lua_except(
-		    L, "error when reading the data from the com port");
+		xcic_lua_except(L, "error when reading the data from the com port");
 
 	if (dst_addr != frame->src_addr)
-		xcic_lua_except(L, "mismatch on address `%d` != `%d`", dst_addr,
-				frame->dst_addr);
+		xcic_lua_except(L, "mismatch on address `%d` != `%d`", dst_addr, frame->dst_addr);
 
 	box_latch_unlock(xp->latch);
 
@@ -528,15 +500,14 @@ void xcic_scom_dump_faulty_frame(struct ibuf *ibuf, scom_frame_t *frame)
 		*ptr = '\0';
 	}
 
-	uint16_t cs = xcic_scom_calc_checksum(
-	    &frame->buffer[SCOM_FRAME_HEADER_SIZE], frame->data_length);
+	uint16_t cs =
+	    xcic_scom_calc_checksum(&frame->buffer[SCOM_FRAME_HEADER_SIZE], frame->data_length);
 
-	say_info("xcic: faulty frame len %d iu %d cs %d esc %s", len,
-		 ibuf_used(ibuf), cs, esc ?: "-");
+	say_info("xcic: faulty frame len %d iu %d cs %d esc %s", len, ibuf_used(ibuf), cs,
+		 esc ?: "-");
 }
 
-int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf,
-				   scom_property_t *property)
+int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf, scom_property_t *property)
 {
 	if (!ibuf_alloc(ibuf, SCOM_FRAME_HEADER_SIZE + 2 + 8))
 		xcic_lua_except(L, "alloc failed");
@@ -547,10 +518,9 @@ int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf,
 	scom_encode_read_property(property);
 
 	if (property->frame->last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "read property frame encoding failed with error %d (%s)",
-		    property->frame->last_error,
-		    xcic_scom_strerror(property->frame->last_error));
+		xcic_lua_except(L, "read property frame encoding failed with error %d (%s)",
+				property->frame->last_error,
+				xcic_scom_strerror(property->frame->last_error));
 
 	return 0;
 
@@ -558,9 +528,8 @@ except:
 	return -1; // caller must invoke `lua_error`
 }
 
-int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
-				    scom_property_t *property, const char *data,
-				    size_t data_len)
+int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf, scom_property_t *property,
+				    const char *data, size_t data_len)
 {
 	size_t offset = SCOM_FRAME_HEADER_SIZE + 2 + 8;
 
@@ -576,11 +545,9 @@ int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
 	scom_encode_write_property(property);
 
 	if (property->frame->last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L,
-		    "write property frame encoding failed with error %d (%s)",
-		    property->frame->last_error,
-		    xcic_scom_strerror(property->frame->last_error));
+		xcic_lua_except(L, "write property frame encoding failed with error %d (%s)",
+				property->frame->last_error,
+				xcic_scom_strerror(property->frame->last_error));
 
 	return 0;
 
@@ -588,8 +555,7 @@ except:
 	return -1; // caller must invoke `lua_error`
 }
 
-int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf,
-				   scom_frame_t *frame)
+int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf, scom_frame_t *frame)
 {
 	if (!ibuf_alloc(ibuf, scom_frame_length(frame) - frame->buffer_size))
 		xcic_lua_except(L, "alloc failed");
@@ -600,9 +566,8 @@ int xcic_scom_encode_request_frame(lua_State *L, struct ibuf *ibuf,
 	scom_encode_request_frame(frame);
 
 	if (frame->last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "data link frame encoding failed with error %d (%s)",
-		    frame->last_error, xcic_scom_strerror(frame->last_error));
+		xcic_lua_except(L, "data link frame encoding failed with error %d (%s)",
+				frame->last_error, xcic_scom_strerror(frame->last_error));
 
 	return 0;
 
@@ -615,9 +580,8 @@ int xcic_scom_decode_frame_header(lua_State *L, scom_frame_t *frame)
 	scom_decode_frame_header(frame);
 
 	if (frame->last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "data link header decoding failed with error %d (%s)",
-		    frame->last_error, xcic_scom_strerror(frame->last_error));
+		xcic_lua_except(L, "data link header decoding failed with error %d (%s)",
+				frame->last_error, xcic_scom_strerror(frame->last_error));
 
 	return 0;
 
@@ -630,9 +594,8 @@ int xcic_scom_decode_frame_data(lua_State *L, scom_frame_t *frame)
 	scom_decode_frame_data(frame);
 
 	if (frame->last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "data link data decoding failed with error %d (%s)",
-		    frame->last_error, xcic_scom_strerror(frame->last_error));
+		xcic_lua_except(L, "data link data decoding failed with error %d (%s)",
+				frame->last_error, xcic_scom_strerror(frame->last_error));
 
 	return 0;
 
@@ -645,10 +608,9 @@ int xcic_scom_decode_read_property(lua_State *L, scom_property_t *property)
 	scom_decode_read_property(property);
 
 	if (property->frame->last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "read property decoding failed with error %d (%s)",
-		    property->frame->last_error,
-		    xcic_scom_strerror(property->frame->last_error));
+		xcic_lua_except(L, "read property decoding failed with error %d (%s)",
+				property->frame->last_error,
+				xcic_scom_strerror(property->frame->last_error));
 
 	return 0;
 
@@ -661,10 +623,9 @@ int xcic_scom_decode_write_property(lua_State *L, scom_property_t *property)
 	scom_decode_write_property(property);
 
 	if (property->frame->last_error != SCOM_ERROR_NO_ERROR)
-		xcic_lua_except(
-		    L, "write property decoding failed with error %d (%s)",
-		    property->frame->last_error,
-		    xcic_scom_strerror(property->frame->last_error));
+		xcic_lua_except(L, "write property decoding failed with error %d (%s)",
+				property->frame->last_error,
+				xcic_scom_strerror(property->frame->last_error));
 
 	return 0;
 
@@ -873,9 +834,7 @@ int xcic_pack_signal(lua_State *L)
 int xcic_unpack_software_version(lua_State *L)
 {
 	if (lua_gettop(L) < 1)
-		return luaL_error(
-		    L,
-		    "Usage: xcic.unpack_software_version(msb_data, lsb_data)");
+		return luaL_error(L, "Usage: xcic.unpack_software_version(msb_data, lsb_data)");
 
 	size_t msb_data_len;
 	const char *msb_data = lua_tolstring(L, 1, &msb_data_len);
@@ -892,8 +851,7 @@ int xcic_unpack_software_version(lua_State *L)
 	uint16_t msb = (uint16_t)scom_read_le_float(msb_data);
 	uint16_t lsb = (uint16_t)scom_read_le_float(lsb_data);
 
-	lua_pushfstring(L, "%d.%d.%d", (int)msb >> 8, (int)lsb >> 8,
-			(int)lsb & 0xFF);
+	lua_pushfstring(L, "%d.%d.%d", (int)msb >> 8, (int)lsb >> 8, (int)lsb & 0xFF);
 
 	return 1;
 
@@ -989,27 +947,25 @@ struct define {
 	int value;
 };
 
-static const struct define defines[] = {
-    {"FRAME_HEADER_SIZE", SCOM_FRAME_HEADER_SIZE}, {NULL, 0}};
+static const struct define defines[] = {{"FRAME_HEADER_SIZE", SCOM_FRAME_HEADER_SIZE}, {NULL, 0}};
 
 /*
  * Lists of exporting: object and/or functions to the Lua
  */
 
-static const struct luaL_Reg R[] = {
-    {"open_port", xcic_open_port},
-    {"calc_checksum", xcic_calc_checksum},
-    {"pack_le32", xcic_pack_le32},
-    {"unpack_le32", xcic_unpack_le32},
-    {"pack_le16", xcic_pack_le16},
-    {"unpack_le16", xcic_unpack_le16},
-    {"pack_le_float", xcic_pack_le_float},
-    {"unpack_le_float", xcic_unpack_le_float},
-    {"pack_bool", xcic_pack_bool},
-    {"unpack_bool", xcic_unpack_bool},
-    {"pack_signal", xcic_pack_signal},
-    {"unpack_software_version", xcic_unpack_software_version},
-    {NULL, NULL}};
+static const struct luaL_Reg R[] = {{"open_port", xcic_open_port},
+				    {"calc_checksum", xcic_calc_checksum},
+				    {"pack_le32", xcic_pack_le32},
+				    {"unpack_le32", xcic_unpack_le32},
+				    {"pack_le16", xcic_pack_le16},
+				    {"unpack_le16", xcic_unpack_le16},
+				    {"pack_le_float", xcic_pack_le_float},
+				    {"unpack_le_float", xcic_unpack_le_float},
+				    {"pack_bool", xcic_pack_bool},
+				    {"unpack_bool", xcic_unpack_bool},
+				    {"pack_signal", xcic_pack_signal},
+				    {"unpack_software_version", xcic_unpack_software_version},
+				    {NULL, NULL}};
 
 static const struct luaL_Reg M[] = {
     {"close", xcic_port_close},
