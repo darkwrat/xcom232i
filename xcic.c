@@ -851,7 +851,7 @@ int xcic_unpack_software_version(lua_State *L)
 	uint16_t msb = (uint16_t)scom_read_le_float(msb_data);
 	uint16_t lsb = (uint16_t)scom_read_le_float(lsb_data);
 
-	lua_pushfstring(L, "%d.%d.%d", (int)msb >> 8, (int)lsb >> 8, (int)lsb & 0xFF);
+	lua_pushfstring(L, "%d.%d.%d", msb >> 8, lsb >> 8, lsb & 0xFF);
 
 	return 1;
 
