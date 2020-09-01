@@ -203,9 +203,9 @@ local f = {}
 
 for _, m in s.index.pk:pairs({max_int}, {iterator = box.index.LE}) do
 	table.insert(f, {
-		ts = os.date('%Y-%m-%d %H:%M:%S', m.ts),
+		time = os.date('!%Y-%m-%dT%TZ', m.ts),
 		from = m.src_addr,
-		v = vs[m.type],
+		message = vs[m.type],
 	})
 end
 

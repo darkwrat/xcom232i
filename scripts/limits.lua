@@ -36,4 +36,9 @@ return {
 			xp():read_parameter_property(101, 1506, 0xD)
 			),
 	},
+	current = {
+		max_aac = xp.unpack_le_float(
+			xp():read_parameter_property(101, 1107, 0xD)
+			),
+	},
 }
