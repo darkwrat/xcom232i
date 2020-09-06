@@ -46,6 +46,8 @@ local xpmt = {
 	end
 }
 
+fsc = require('fsc')
+
 xp = setmetatable(xcic, xpmt)
 
 require('xci').start()
