@@ -208,7 +208,9 @@ int fsc_new_fs(lua_State *L)
 	struct fuse_args args = FUSE_ARGS_INIT(0, NULL);
 
 	fuse_opt_add_arg(&args, "");
-	fuse_opt_add_arg(&args, "-d");
+	fuse_opt_add_arg(&args, "-odebug");
+	fuse_opt_add_arg(&args, "-onoatime");
+	fuse_opt_add_arg(&args, "-oauto_unmount");
 	fuse_opt_add_arg(&args, "-oallow_other");
 	fuse_opt_add_arg(&args, "-oallow_root");
 
