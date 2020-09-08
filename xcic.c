@@ -61,6 +61,8 @@ static int xcic_port_read_user_info(lua_State *L);
 static int xcic_port_read_parameter_property(lua_State *L);
 static int xcic_port_write_parameter_property(lua_State *L);
 static int xcic_port_read_message(lua_State *L);
+static int xcic_port_read_datalog_dir(lua_State *L);
+static int xcic_port_read_datalog_file(lua_State *L);
 
 /** Xcom-232i serial port handle. */
 struct xcic_port {
@@ -71,14 +73,18 @@ struct xcic_port {
 };
 
 static int xcic_scom_read_property(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
-				   scom_property_t *property);
+				   scom_property_t *property, const char *data, size_t data_len);
 static int xcic_scom_write_property(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
 				    scom_property_t *property, const char *data, size_t data_len);
+static int xcic_scom_xfer_datalog(lua_State *L, struct xcic_port *xp, uint32_t dst_addr,
+				  uint32_t object_id, const char *data, size_t data_len,
+				  struct ibuf *rbuf);
 static int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
 				   scom_frame_t *frame);
 
 static int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf,
-					  scom_property_t *property);
+					  scom_property_t *property, const char *data,
+					  size_t data_len);
 static int xcic_scom_encode_write_property(lua_State *L, struct ibuf *ibuf,
 					   scom_property_t *property, const char *data,
 					   size_t data_len);
@@ -226,7 +232,11 @@ int xcic_port_read_user_info(lua_State *L)
 	struct ibuf ibuf __attribute__((cleanup(ibuf_destroy))) = {0};
 	ibuf_create(&ibuf, cord_slab_cache(), 32);
 
-	if (xcic_scom_read_property(L, xp, &ibuf, &property))
+	box_latch_lock(xp->latch);
+	int ret = xcic_scom_read_property(L, xp, &ibuf, &property, NULL, 0);
+	box_latch_unlock(xp->latch);
+
+	if (ret)
 		goto except;
 
 	lua_pushlstring(L, property.value_buffer, property.value_length);
@@ -261,7 +271,11 @@ int xcic_port_read_parameter_property(lua_State *L)
 	struct ibuf ibuf __attribute__((cleanup(ibuf_destroy))) = {0};
 	ibuf_create(&ibuf, cord_slab_cache(), 32);
 
-	if (xcic_scom_read_property(L, xp, &ibuf, &property))
+	box_latch_lock(xp->latch);
+	int ret = xcic_scom_read_property(L, xp, &ibuf, &property, NULL, 0);
+	box_latch_unlock(xp->latch);
+
+	if (ret)
 		goto except;
 
 	lua_pushlstring(L, property.value_buffer, property.value_length);
@@ -273,11 +287,11 @@ except:
 }
 
 int xcic_scom_read_property(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
-			    scom_property_t *property)
+			    scom_property_t *property, const char *data, size_t data_len)
 {
 	uint32_t object_id = property->object_id;
 
-	if (xcic_scom_encode_read_property(L, ibuf, property))
+	if (xcic_scom_encode_read_property(L, ibuf, property, data, data_len))
 		goto except;
 
 	if (xcic_scom_encode_request_frame(L, ibuf, property->frame))
@@ -333,7 +347,11 @@ int xcic_port_write_parameter_property(lua_State *L)
 	struct ibuf ibuf __attribute__((cleanup(ibuf_destroy))) = {0};
 	ibuf_create(&ibuf, cord_slab_cache(), 32);
 
-	if (xcic_scom_write_property(L, xp, &ibuf, &property, data, data_len))
+	box_latch_lock(xp->latch);
+	int ret = xcic_scom_write_property(L, xp, &ibuf, &property, data, data_len);
+	box_latch_unlock(xp->latch);
+
+	if (ret)
 		goto except;
 
 	return 0;
@@ -399,7 +417,11 @@ int xcic_port_read_message(lua_State *L)
 	struct ibuf ibuf __attribute__((cleanup(ibuf_destroy))) = {0};
 	ibuf_create(&ibuf, cord_slab_cache(), 32);
 
-	if (xcic_scom_read_property(L, xp, &ibuf, &property))
+	box_latch_lock(xp->latch);
+	int ret = xcic_scom_read_property(L, xp, &ibuf, &property, NULL, 0);
+	box_latch_unlock(xp->latch);
+
+	if (ret)
 		goto except;
 
 	if (property.value_length != 4 + 2 + 4 + 4 + 4)
@@ -417,14 +439,146 @@ except:
 	return lua_error(L);
 }
 
+int xcic_port_read_datalog_dir(lua_State *L)
+{
+	if (lua_gettop(L) < 2)
+		return luaL_error(L, "Usage: xp:read_datalog_dir(dst_addr)");
+
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	uint32_t dst_addr = lua_tointeger(L, 2);
+	uint32_t object_id = 1; // directory list
+
+	struct ibuf rbuf __attribute__((cleanup(ibuf_destroy))) = {0};
+	ibuf_create(&rbuf, cord_slab_cache(), 4096);
+
+	box_latch_lock(xp->latch);
+	int ret = xcic_scom_xfer_datalog(L, xp, dst_addr, object_id, NULL, 0, &rbuf);
+	box_latch_unlock(xp->latch);
+
+	if (ret)
+		goto except;
+
+	lua_pushlstring(L, rbuf.rpos, ibuf_used(&rbuf));
+
+	return 1;
+
+except:
+	return lua_error(L);
+}
+
+int xcic_port_read_datalog_file(lua_State *L)
+{
+	if (lua_gettop(L) < 3)
+		return luaL_error(L, "Usage: xp:read_datalog_file(dst_addr, filename)");
+
+	struct xcic_port *xp = (struct xcic_port *)luaL_checkudata(L, 1, XCIC_PORT_LUA_UDATA_NAME);
+	uint32_t dst_addr = lua_tointeger(L, 2);
+	uint32_t object_id = 2; // file access
+
+	size_t data_len;
+	const char *data = lua_tolstring(L, 3, &data_len);
+
+	struct ibuf rbuf __attribute__((cleanup(ibuf_destroy))) = {0};
+	ibuf_create(&rbuf, cord_slab_cache(), 4096);
+
+	box_latch_lock(xp->latch);
+	int ret = xcic_scom_xfer_datalog(L, xp, dst_addr, object_id, data, data_len, &rbuf);
+	box_latch_unlock(xp->latch);
+
+	if (ret)
+		goto except;
+
+	lua_pushlstring(L, rbuf.rpos, ibuf_used(&rbuf));
+
+	return 1;
+
+except:
+	return lua_error(L);
+}
+
+enum xcic_xfer_state {
+	XCIC_XFER_START = 0x21,	   /*SD_Start*/
+	XCIC_XFER_CONTINUE = 0x23, /*SD_Ack_Continue*/
+	XCIC_XFER_RETRY = 0x24,	   /*SD_Nack_Retry*/
+	XCIC_XFER_ABORT = 0x25,	   /*SD_Abort*/
+};
+
+int xcic_scom_xfer_datalog(lua_State *L, struct xcic_port *xp, uint32_t dst_addr,
+			   uint32_t object_id, const char *data, size_t data_len, struct ibuf *rbuf)
+{
+	struct ibuf ibuf __attribute__((cleanup(ibuf_destroy))) = {0};
+	ibuf_create(&ibuf, cord_slab_cache(), 256);
+
+	scom_frame_t frame;
+	scom_property_t property;
+
+	void *ptr;
+	enum xcic_xfer_state xfst = XCIC_XFER_START;
+
+	for (;;) {
+		ibuf_reset(&ibuf);
+
+		scom_initialize_frame(&frame, NULL, 0);
+		frame.src_addr = 1;
+		frame.dst_addr = dst_addr;
+
+		scom_initialize_property(&property, &frame);
+		property.object_type = 0x101; // datalog transfer
+		property.object_id = object_id;
+		property.property_id = (uint32_t)xfst;
+
+		say_info(" -> xfst 0x%x prop 0x%x data `%.*s`", xfst, property.property_id,
+			 data_len, data);
+
+		if (xcic_scom_read_property(L, xp, &ibuf, &property, data, data_len))
+			switch (xfst) {
+			case XCIC_XFER_ABORT:
+				lua_pop(L, -1); // drop last error
+				goto except;
+			case XCIC_XFER_CONTINUE:
+				lua_pop(L, -1); // drop last error
+				xfst = XCIC_XFER_RETRY;
+				continue;
+			default:
+				goto abort; // error saved
+			}
+
+		if (xfst == XCIC_XFER_ABORT)
+			goto except;
+
+		say_info("<-  xfst 0x%x prop 0x%x vl %d rl %d", xfst, property.property_id,
+			 property.value_length, ibuf_used(rbuf));
+
+		if (property.value_length) {
+			ptr = ibuf_alloc(rbuf, property.value_length);
+			if (!ptr)
+				xcic_lua_except_to(abort, L, "alloc failed");
+
+			memcpy(ptr, property.value_buffer, property.value_length);
+		}
+
+		xfst = XCIC_XFER_CONTINUE;
+		if (property.property_id == 0x22 /*SD_Datablock*/)
+			continue;
+		else if (property.property_id == 0x26 /*SD_Finish*/)
+			break;
+
+	abort:
+		xfst = XCIC_XFER_ABORT;
+	}
+
+	return 0;
+
+except:
+	return -1; // caller must invoke `lua_error'
+}
+
 int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp, struct ibuf *ibuf,
 			    scom_frame_t *frame)
 {
 	ssize_t nb;
 
 	uint32_t dst_addr = frame->dst_addr;
-
-	box_latch_lock(xp->latch);
 
 	nb = xcic_intl_port_write(xp, frame->buffer, scom_frame_length(frame));
 
@@ -464,13 +618,10 @@ int xcic_scom_port_exchange(lua_State *L, struct xcic_port *xp, struct ibuf *ibu
 	if (dst_addr != frame->src_addr)
 		xcic_lua_except(L, "mismatch on address `%d` != `%d`", dst_addr, frame->dst_addr);
 
-	box_latch_unlock(xp->latch);
-
 	return 0;
 
 except:
 	xcic_intl_port_close(xp);
-	box_latch_unlock(xp->latch);
 
 	return -1; // caller must invoke `lua_error`
 }
@@ -507,15 +658,25 @@ void xcic_scom_dump_faulty_frame(struct ibuf *ibuf, scom_frame_t *frame)
 		 esc ?: "-");
 }
 
-int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf, scom_property_t *property)
+int xcic_scom_encode_read_property(lua_State *L, struct ibuf *ibuf, scom_property_t *property,
+				   const char *data, size_t data_len)
 {
-	if (!ibuf_alloc(ibuf, SCOM_FRAME_HEADER_SIZE + 2 + 8))
+	size_t offset = SCOM_FRAME_HEADER_SIZE + 2 + 8;
+
+	if (!ibuf_alloc(ibuf, offset + data_len))
 		xcic_lua_except(L, "alloc failed");
+
+	memcpy(ibuf->rpos + offset, data, data_len);
 
 	property->frame->buffer = ibuf->rpos;
 	property->frame->buffer_size = ibuf_used(ibuf);
+	property->value_length = data_len;
 
 	scom_encode_read_property(property);
+
+	/* scom_encode_read_property() resets `property->value_length` */
+	property->value_length = data_len;
+	property->frame->data_length += property->value_length;
 
 	if (property->frame->last_error != SCOM_ERROR_NO_ERROR)
 		xcic_lua_except(L, "read property frame encoding failed with error %d (%s)",
@@ -974,6 +1135,8 @@ static const struct luaL_Reg M[] = {
     {"read_parameter_property", xcic_port_read_parameter_property},
     {"write_parameter_property", xcic_port_write_parameter_property},
     {"read_message", xcic_port_read_message},
+    {"read_datalog_dir", xcic_port_read_datalog_dir},
+    {"read_datalog_file", xcic_port_read_datalog_file},
     {"__tostring", xcic_port_to_string},
     {"__gc", xcic_port_gc},
     {NULL, NULL}};
