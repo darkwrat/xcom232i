@@ -481,10 +481,7 @@ int xcic_port_read_datalog_file(lua_State *L)
 	struct ibuf rbuf __attribute__((cleanup(ibuf_destroy))) = {0};
 	ibuf_create(&rbuf, cord_slab_cache(), 4096);
 
-	box_latch_lock(xp->latch);
 	int ret = xcic_scom_xfer_datalog(L, xp, dst_addr, object_id, data, data_len, &rbuf);
-	box_latch_unlock(xp->latch);
-
 	if (ret)
 		goto except;
 
@@ -530,7 +527,13 @@ int xcic_scom_xfer_datalog(lua_State *L, struct xcic_port *xp, uint32_t dst_addr
 		say_info(" -> xfst 0x%x prop 0x%x data `%.*s`", xfst, property.property_id,
 			 data_len, data);
 
-		if (xcic_scom_read_property(L, xp, &ibuf, &property, data, data_len))
+		box_latch_lock(xp->latch);
+		int ret = xcic_scom_read_property(L, xp, &ibuf, &property, data, data_len);
+		box_latch_unlock(xp->latch);
+
+		fiber_reschedule(); // prevent starvation
+
+		if (ret)
 			switch (xfst) {
 			case XCIC_XFER_ABORT:
 				lua_pop(L, -1); // drop last error
